@@ -1,6 +1,49 @@
-flask
-flask_wtf
-flask_login
-werkzeug
-pymysql
-python-dotenv
+# ============================================
+# Dependencias Mínimas (Sin Base de Datos)
+# ============================================
+
+# Flask Core (REQUERIDO)
+flask>=3.0.0
+flask_wtf>=1.2.0
+werkzeug>=3.0.0
+
+# Environment Configuration (REQUERIDO)
+python-dotenv>=1.0.0
+
+# ============================================
+# OBSOLETO - No necesario en modo privado
+# ============================================
+
+# Database (NO UTILIZADO)
+# flask-sqlalchemy>=3.1.0
+# sqlalchemy>=2.0.0
+
+# Background Tasks (NO UTILIZADO)
+# celery>=5.3.0
+# redis>=5.0.0
+
+# ============================================
+# OPCIONAL - Mejora funcionalidad
+# ============================================
+
+# File Validation (OPCIONAL - tiene fallback)
+python-magic>=0.4.27
+python-magic-bin>=0.4.14; sys_platform == 'win32'
+
+# Utilities (OPCIONAL)
+emoji>=2.8.0
+pytz>=2023.3
+
+# Testing (OPCIONAL - para desarrollo)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-flask>=1.2.0
+
+# Development (OPCIONAL - para desarrollo)
+black>=23.0.0
+flake8>=6.0.0
+
+# ============================================
+# INSTALACIÓN MÍNIMA
+# ============================================
+# pip install flask flask_wtf werkzeug python-dotenv

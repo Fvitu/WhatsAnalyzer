@@ -27,14 +27,15 @@ link_pattern = re.compile(r"https?://\S+")
 def parse_date(date_str, time_str):
     """
     Dado un string de fecha y hora, prueba distintos formatos para parsearlo.
-    Se prueban tanto día/mes/año como mes/día/año, con año de 2 o 4 dígitos.
+    Se prueban tanto mes/día/año como día/mes/año, con año de 2 o 4 dígitos.
+    Prioriza mes/día/año (formato común en WhatsApp exports).
     """
     date_time_str = f"{date_str} {time_str}"
     formatos = [
-        "%d/%m/%y %H:%M",
-        "%m/%d/%y %H:%M",
-        "%d/%m/%Y %H:%M",
-        "%m/%d/%Y %H:%M",
+        "%m/%d/%y %H:%M",  # US format: month/day/year (2 digits) - priority
+        "%m/%d/%Y %H:%M",  # US format: month/day/year (4 digits)
+        "%d/%m/%y %H:%M",  # EU format: day/month/year (2 digits)
+        "%d/%m/%Y %H:%M",  # EU format: day/month/year (4 digits)
     ]
     for fmt in formatos:
         try:
@@ -67,53 +68,57 @@ def should_ignore_message(sender, message):
     return False
 
 
-def parse_chat(filename):
-    """
-    Lee el archivo de WhatsApp y retorna una lista de diccionarios,
-    cada uno con:
-      - 'datetime': objeto datetime
-      - 'sender': remitente (o None si es mensaje del sistema)
-      - 'message': contenido completo (incluye continuaciones)
-
-    Se omiten los mensajes de sistema/notificaciones.
-    """
+def _parse_chat_lines(lines_iterable):
+    """Parsea iterables de líneas de chat y retorna la lista de mensajes."""
     messages = []
     current_message = None
 
-    with open(filename, encoding="utf-8") as f:
-        for line in f:
-            line = line.rstrip("\n")
-            if not line:
+    for line in lines_iterable:
+        line = line.rstrip("\n")
+        if not line:
+            continue
+
+        match = message_pattern.match(line)
+        if match:
+            date_str, time_str, rest = match.groups()
+            try:
+                dt = parse_date(date_str, time_str)
+            except ValueError:
                 continue
 
-            match = message_pattern.match(line)
-            if match:
-                date_str, time_str, rest = match.groups()
-                try:
-                    dt = parse_date(date_str, time_str)
-                except ValueError:
-                    continue
-
-                if ": " in rest:
-                    sender, message_text = rest.split(": ", 1)
-                else:
-                    sender = None
-                    message_text = rest
-
-                if should_ignore_message(sender, message_text):
-                    current_message = None
-                    continue
-
-                current_message = {
-                    "datetime": dt,
-                    "sender": sender,
-                    "message": message_text,
-                }
-                messages.append(current_message)
+            if ": " in rest:
+                sender, message_text = rest.split(": ", 1)
             else:
-                if current_message is not None:
-                    current_message["message"] += "\n" + line
+                sender = None
+                message_text = rest
+
+            if should_ignore_message(sender, message_text):
+                current_message = None
+                continue
+
+            current_message = {
+                "datetime": dt,
+                "sender": sender,
+                "message": message_text,
+            }
+            messages.append(current_message)
+        else:
+            if current_message is not None:
+                current_message["message"] += "\n" + line
     return messages
+
+
+def parse_chat(filename):
+    """
+    Lee el archivo de WhatsApp desde disco y retorna la lista de mensajes.
+    """
+    with open(filename, encoding="utf-8") as f:
+        return _parse_chat_lines(f)
+
+
+def parse_chat_stream(stream):
+    """Parsea un chat desde un objeto tipo archivo ya cargado en memoria."""
+    return _parse_chat_lines(stream)
 
 
 def format_duration(td):
@@ -150,6 +155,8 @@ def analyze_messages(messages):
 
     participantes = set()
     mensajes_por_persona = defaultdict(int)
+    palabras_por_persona = defaultdict(int)  # Total de palabras por persona
+    mensajes_count_persona = defaultdict(int)  # Para calcular promedio
     multimedia_count = 0
     total_emojis = 0
     total_links = 0
@@ -212,8 +219,14 @@ def analyze_messages(messages):
                 emojis_por_persona[msg["sender"]][em] += 1
 
         palabras = re.findall(r"\b\w+\b", texto.lower())
-        total_palabras += len(palabras)
+        palabras_en_msg = len(palabras)
+        total_palabras += palabras_en_msg
         palabras_counter.update(palabras)
+
+        # Contar palabras por persona
+        if msg["sender"] is not None:
+            palabras_por_persona[msg["sender"]] += palabras_en_msg
+            mensajes_count_persona[msg["sender"]] += 1
 
     palabras_promedio = total_palabras / total_messages if total_messages > 0 else 0
 
@@ -293,8 +306,11 @@ def analyze_messages(messages):
         ]
         promedio_segundos = sum(duraciones) / len(duraciones)
         promedio_duracion = format_duration(timedelta(seconds=promedio_segundos))
+        # Calcular horas totales "desperdiciadas" chateando
+        total_horas_chat = sum(duraciones) / 3600
     else:
         promedio_duracion = "0 min"
+        total_horas_chat = 0
 
     # Iniciadores de conversaciones y porcentajes
     iniciadores = Counter()
@@ -307,8 +323,54 @@ def analyze_messages(messages):
         for persona, count in iniciadores.items()
     }
 
+    # Podio de iniciadores (ordenado de mayor a menor)
+    podio_iniciadores = iniciadores.most_common()
+
+    # Calcular tiempo de respuesta promedio por persona
+    # Solo consideramos respuestas dentro de una conversación activa (gap < 2 horas)
+    tiempos_respuesta_por_persona = defaultdict(list)
+
+    if len(messages) > 1:
+        prev_msg = messages[0]
+        for msg in messages[1:]:
+            dt = msg["datetime"]
+            prev_dt = prev_msg["datetime"]
+            gap = (dt - prev_dt).total_seconds()
+
+            # Solo contar como respuesta si:
+            # 1. El gap es menor a 2 horas (misma conversación)
+            # 2. Es de una persona diferente (es una respuesta, no continuación)
+            # 3. El gap es mayor a 5 segundos (evitar mensajes muy seguidos)
+            if gap < 7200 and gap > 5 and msg["sender"] and prev_msg["sender"]:
+                if msg["sender"] != prev_msg["sender"]:
+                    tiempos_respuesta_por_persona[msg["sender"]].append(gap)
+
+            prev_msg = msg
+
+    # Calcular promedio de tiempo de respuesta por persona
+    promedio_respuesta_por_persona = {}
+    for persona, tiempos in tiempos_respuesta_por_persona.items():
+        if tiempos:
+            promedio_seg = sum(tiempos) / len(tiempos)
+            promedio_respuesta_por_persona[persona] = {
+                "promedio_segundos": promedio_seg,
+                "promedio_formateado": format_duration(timedelta(seconds=promedio_seg)),
+                "total_respuestas": len(tiempos),
+            }
+
+    # Calcular promedio de palabras por mensaje por persona
+    palabras_promedio_por_persona = {}
+    for persona in participantes:
+        if mensajes_count_persona[persona] > 0:
+            promedio = palabras_por_persona[persona] / mensajes_count_persona[persona]
+            palabras_promedio_por_persona[persona] = round(promedio, 1)
+        else:
+            palabras_promedio_por_persona[persona] = 0
+
     # Racha conversacional: días consecutivos (usando toordinal)
     fechas = sorted({msg["datetime"].date() for msg in messages})
+    dias_activos = len(fechas)  # Días con al menos un mensaje
+
     longest_streak = 0
     current_streak = 1
     streak_start = streak_end = None
@@ -335,10 +397,18 @@ def analyze_messages(messages):
         racha_dias = 0
 
     # Formatear fechas al formato dd-mm-yyyy para lapso y racha
+    # Calcular días totales de conversación
+    total_dias = (
+        (fin_global.date() - inicio_global.date()).days
+        if (inicio_global and fin_global)
+        else 0
+    )
+
     lapso_tiempo = {
         "inicio": inicio_global.strftime("%d-%m-%Y") if inicio_global else None,
         "fin": fin_global.strftime("%d-%m-%Y") if fin_global else None,
         "duracion": str(lapso) if lapso else None,
+        "total_dias": total_dias,
     }
     racha_conversacional = {
         "duracion_dias": racha_dias,
@@ -368,8 +438,10 @@ def analyze_messages(messages):
             if (inicio_global and fin_global)
             else 0
         ),
+        "dias_activos": dias_activos,  # Días con al menos un mensaje
         # Texto y Multimedia
         "palabras_promedio_por_mensaje": palabras_promedio,
+        "palabras_promedio_por_persona": palabras_promedio_por_persona,
         "palabras_mas_utilizadas": palabras_counter.most_common(10),
         "total_multimedia": multimedia_count,
         "total_links": total_links,
@@ -385,8 +457,11 @@ def analyze_messages(messages):
             "iniciadores": dict(iniciadores),
             "porcentajes": iniciadores_porcentajes,
             "total_conversaciones": total_conversaciones,
+            "podio": podio_iniciadores,
         },
         "tiempo_promedio_conversacion": promedio_duracion,
+        "tiempo_respuesta_por_persona": promedio_respuesta_por_persona,
+        "horas_totales_chat": round(total_horas_chat, 1),
         "lapso_tiempo": lapso_tiempo,
         "racha_conversacional": racha_conversacional,
     }
@@ -410,7 +485,8 @@ def process_chat(input_file, output_file):
 
 
 # --- Ejemplo de uso ---
-if __name__ == "__main__":
+""" if __name__ == "__main__":
     chat_file = "prueba.txt"  # Modificá la ruta según corresponda
     salida_file = "salida.json"  # Ruta para el JSON resultante
     process_chat(chat_file, salida_file)
+ """

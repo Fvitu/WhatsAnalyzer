@@ -2,7 +2,6 @@
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Flask](https://img.shields.io/badge/Flask-2.0+-green.svg)
-![Status](https://img.shields.io/badge/Status-Cooking-orange.svg)
 
 **WhatsAnalyzer** is a powerful Python web application built with Flask that turns your WhatsApp chat history into beautiful, interactive insights. Curious about who talks the most? Which emojis are your favorites? Or when your group is most active? WhatsAnalyzer cooks up the data for you! 🍳
 
@@ -20,8 +19,6 @@
 ## 🚀 Tech Stack
 
 -   **Backend:** Python, Flask
--   **Authentication:** Flask-Login, Flask-WTF
--   **Database:** MySQL (via PyMySQL)
 -   **Frontend:** HTML5, CSS3, JavaScript (Chart.js for visualizations)
 -   **Processing:** Python Regex (`re`) for parsing raw chat logs.
 
@@ -32,7 +29,6 @@ Follow these steps to get the kitchen running on your local machine:
 ### Prerequisites
 
 -   Python 3.8 or higher
--   MySQL Server installed and running
 
 ### 1. Clone the Repository
 
@@ -61,13 +57,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Database Configuration
-
-1.  Create a MySQL database (e.g., `whatsanalyzer_db`).
-2.  Import the database schema (if provided in `sql/` or via migrations).
-3.  Configure your environment variables or `config.py` with your database credentials.
-
-### 5. Run the Application
+### 4. Run the Application
 
 ```bash
 python app.py
@@ -78,13 +68,31 @@ Visit `http://localhost:5000` in your browser.
 ## 📖 How to Use
 
 1.  **Export Chat:** Open a WhatsApp chat (Individual or Group) > Tap the three dots (⋮) > More > Export chat > Without Media.
-2.  **Register/Login:** Create an account on the WhatsAnalyzer platform.
-3.  **Upload:** Upload the exported `.txt` file via the upload interface.
-4.  **Explore:** View the generated dashboard with all your stats!
+2.  **Upload:** Upload the exported `.txt` file via the upload interface.
+3.  **Explore:** View the generated dashboard with all your stats!
 
 ## 📸 Screenshots
 
-![WhatsAnalyzer Dashboard](screenshots/dashboard.png)
+![WhatsAnalyzer Dashboard](static/screenshots/dashboard.png)
+
+## Environment (.env)
+
+Create a minimal `.env` file in the project root with the essential settings required to run the app locally. Example:
+
+```env
+FLASK_ENV=development
+SECRET_KEY=replace-with-strong-secret
+MAX_CONTENT_LENGTH=10485760
+ALLOWED_EXTENSIONS=txt
+PORT=5000
+LOG_LEVEL=INFO
+```
+
+Only `SECRET_KEY` is required for session and CSRF protection; adjust other values as needed.
+
+## ⚠️ Disclaimer
+
+This tool is intended for personal analysis of your own conversations. Always respect the privacy of the people you chat with. Exported chat files contain sensitive information — handle them with care.
 
 ## 🤝 Contributing
 

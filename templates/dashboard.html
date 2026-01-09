@@ -1,16 +1,15 @@
-{% extends "./layout.html" %} {% block title %} DashBoard {% endblock %} {% block customCSS %}
+{% extends "./layout.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block customCSS %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-wordcloud"></script>
-{% endblock %} {% block body %}
+{% endblock %}
+{% block body %}
 
 <body>
-	<!-- Top Navigation Bar -->
 	<nav class="navbar navbar-expand-lg sticky-top">
 		<div class="container-fluid">
-			<a class="navbar-brand d-flex align-items-center" href="#">
-				<i class="bi bi-chat-dots-fill text-primary me-2"></i>
+			<a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard') }}">
+				<img src="{{ url_for('static', filename='img/WhatsAnalyzer v2.png') }}" alt="" width="20" height="20" class="d-inline-block align-text-top me-2" />
 				<span class="fw-bold">WhatsAnalyzer</span>
 			</a>
 			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
@@ -18,1071 +17,514 @@
 			</button>
 			<div class="collapse navbar-collapse" id="navbarSupportedContent">
 				<ul class="navbar-nav me-auto mb-2 mb-lg-0">
-					<li class="nav-item">
-						<a class="nav-link active" aria-current="page" href="#">Dashboard</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="#">History</a>
-					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="#">Settings</a>
-					</li>
+					<li class="nav-item"><a class="nav-link active" aria-current="page" href="{{ url_for('dashboard') }}">Dashboard</a></li>
 				</ul>
-				<div class="d-flex align-items-center">
-					<div class="form-check form-switch me-2">
-						<input class="form-check-input" type="checkbox" id="darkModeSwitch">
-						<label class="form-check-label" for="darkModeSwitch">
-							<i class="bi bi-moon-stars-fill"></i>
-						</label>
+				<div class="d-flex align-items-center gap-3">
+					<button type="button" class="btn btn-sm btn-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#uploadModal">
+						<i class="bi bi-upload me-1"></i> Upload chat
+					</button>
+					<div class="form-check form-switch mb-0">
+						<input class="form-check-input" type="checkbox" id="darkModeSwitch" />
 					</div>
-					<div class="dropdown">
-						<button class="btn btn-outline-secondary dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-							<i class="bi bi-person-circle"></i>
-						</button>
-						<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-							<li><a class="dropdown-item" href="#">Profile</a></li>
-							<li><a class="dropdown-item" href="#">Settings</a></li>
-							<li>
-								<hr class="dropdown-divider">
-							</li>
-							<li><a class="dropdown-item" href="#">Sign out</a></li>
-						</ul>
-					</div>
+					<span class="version-badge">v2.0</span>
 				</div>
 			</div>
 		</div>
 	</nav>
 
-	<div class="container-fluid">
+	<!-- Progress Navigation Bar -->
+	<div class="progress-nav-bar" id="progressNavBar">
+		<div class="progress-line" id="progressLine"></div>
+		<div class="progress-point active" data-section="overview" title="Overview">
+			<span class="progress-label">Overview</span>
+		</div>
+		<div class="progress-point" data-section="main-stats" title="Main Statistics">
+			<span class="progress-label">Main Stats</span>
+		</div>
+		<div class="progress-point" data-section="activity-charts" title="Activity Charts">
+			<span class="progress-label">Activity</span>
+		</div>
+		<div class="progress-point" data-section="usage-charts" title="Usage Patterns">
+			<span class="progress-label">Usage</span>
+		</div>
+		<div class="progress-point" data-section="emoji-charts" title="Emoji Analysis">
+			<span class="progress-label">Emojis</span>
+		</div>
+		<div class="progress-point" data-section="stats-charts" title="Statistics">
+			<span class="progress-label">Statistics</span>
+		</div>
+		<div class="progress-point" data-section="response-charts" title="Response Analysis">
+			<span class="progress-label">Response</span>
+		</div>
+	</div>
+
+	<div class="container py-4">
+		{% with messages = get_flashed_messages() %}
+		{% if messages %}
 		<div class="row">
-			<!-- Sidebar -->
-			<div class="col-md-3 col-lg-2 d-md-block sidebar collapse" id="sidebarMenu">
-				<div class="position-sticky pt-3">
-					<ul class="nav flex-column">
-						<li class="nav-item">
-							<a class="nav-link active" href="#">
-								<i class="bi bi-speedometer2 me-2"></i>
-								Dashboard
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-file-text me-2"></i>
-								Chat Reports
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-graph-up me-2"></i>
-								Analytics
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-people me-2"></i>
-								Participants
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-calendar-event me-2"></i>
-								Timeline
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-cloud-download me-2"></i>
-								Export Data
-							</a>
-						</li>
-					</ul>
-
-					<h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-						<span>Saved reports</span>
-					</h6>
-					<ul class="nav flex-column mb-2">
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-file-earmark me-2"></i>
-								Family Group
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-file-earmark me-2"></i>
-								Work Team
-							</a>
-						</li>
-						<li class="nav-item">
-							<a class="nav-link" href="#">
-								<i class="bi bi-file-earmark me-2"></i>
-								Friends Chat
-							</a>
-						</li>
-					</ul>
-				</div>
-			</div>
-
-			<!-- Main Content -->
-			<main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
-				<!-- Upload Section -->
-				<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-					<h1 class="h2">Dashboard</h1>
-					<div class="btn-toolbar mb-2 mb-md-0">
-						<div class="btn-group me-2">
-							<button type="button" class="btn btn-sm btn-outline-secondary">Share</button>
-							<button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
-						</div>
-						<button type="button" class="btn btn-sm btn-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#uploadModal">
-							<i class="bi bi-upload me-1"></i>
-							Upload Chat
-						</button>
-					</div>
-				</div>
-
-				<!-- Alert for demo purposes -->
-				<div class="alert alert-info alert-dismissible fade show" role="alert">
-					<i class="bi bi-info-circle-fill me-2"></i>
-					<strong>Welcome to WhatsAnalyzer!</strong> Upload a WhatsApp chat export to see your analysis.
+			<div class="col-12">
+				{% for message in messages %}
+				<div class="alert alert-primary alert-dismissible fade show" role="alert">
+					{{ message }}
 					<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 				</div>
-
-				<!-- Stats Cards -->
-				<div class="row g-3 mb-4">
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="total-messages-card" data-stat-type="total-messages">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-primary-subtle">
-										<i class="bi bi-chat-left-text-fill text-primary"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Total Messages</h5>
-										<h3 class="mt-2 mb-0" id="total-messages-value">3,721</h3>
-										<p class="text-muted small mb-0" id="total-messages-trend">+12% from last month</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="participants-card" data-stat-type="participants">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-success-subtle">
-										<i class="bi bi-people-fill text-success"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Participants</h5>
-										<h3 class="mt-2 mb-0" id="participants-value">8</h3>
-										<p class="text-muted small mb-0" id="participants-trend">Active members</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="media-shared-card" data-stat-type="media-shared">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-warning-subtle">
-										<i class="bi bi-file-earmark-image-fill text-warning"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Media Shared</h5>
-										<h3 class="mt-2 mb-0" id="media-shared-value">482</h3>
-										<p class="text-muted small mb-0" id="media-shared-trend">Photos, videos & files</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="time-span-card" data-stat-type="time-span">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-info-subtle">
-										<i class="bi bi-calendar-week-fill text-info"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Time Span</h5>
-										<h3 class="mt-2 mb-0" id="time-span-value">127 days</h3>
-										<p class="text-muted small mb-0" id="time-span-range">Jan 15 - May 22, 2023</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Additional Stats Row -->
-				<div class="row g-3 mb-4">
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="avg-messages-card" data-stat-type="avg-messages">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-purple-subtle">
-										<i class="bi bi-bar-chart-fill text-purple"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Avg. Messages/Day</h5>
-										<h3 class="mt-2 mb-0" id="avg-messages-value">29.3</h3>
-										<p class="text-muted small mb-0" id="avg-messages-trend">+5% from average</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="response-time-card" data-stat-type="response-time">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-teal-subtle">
-										<i class="bi bi-clock-history text-teal"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Avg. Response Time</h5>
-										<h3 class="mt-2 mb-0" id="response-time-value">4.2 min</h3>
-										<p class="text-muted small mb-0" id="response-time-trend">Across all users</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="emoji-count-card" data-stat-type="emoji-count">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-pink-subtle">
-										<i class="bi bi-emoji-smile-fill text-pink"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Emojis Used</h5>
-										<h3 class="mt-2 mb-0" id="emoji-count-value">1,245</h3>
-										<p class="text-muted small mb-0" id="emoji-count-trend">33% of messages</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<div class="col-md-6 col-xl-3">
-						<div class="card stat-card" id="links-shared-card" data-stat-type="links-shared">
-							<div class="card-body">
-								<div class="d-flex align-items-center">
-									<div class="stat-icon bg-orange-subtle">
-										<i class="bi bi-link-45deg text-orange"></i>
-									</div>
-									<div class="ms-3">
-										<h5 class="card-title mb-0">Links Shared</h5>
-										<h3 class="mt-2 mb-0" id="links-shared-value">118</h3>
-										<p class="text-muted small mb-0" id="links-shared-trend">3.2% of messages</p>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Activity Chart -->
-				<div class="row mb-4">
-					<div class="col-12">
-						<div class="card">
-							<div class="card-header d-flex justify-content-between align-items-center">
-								<h5 class="card-title mb-0">Message Activity</h5>
-								<div class="dropdown">
-									<button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="timeRangeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-										Last 30 Days
-									</button>
-									<ul class="dropdown-menu" aria-labelledby="timeRangeDropdown">
-										<li><a class="dropdown-item" href="#">Last 7 Days</a></li>
-										<li><a class="dropdown-item" href="#">Last 30 Days</a></li>
-										<li><a class="dropdown-item" href="#">Last 90 Days</a></li>
-										<li><a class="dropdown-item" href="#">All Time</a></li>
-									</ul>
-								</div>
-							</div>
-							<div class="card-body">
-								<canvas id="messageActivityChart" height="500"></canvas>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- User Activity and Word Cloud -->
-				<div class="row g-4 mb-4">
-					<div class="col-md-6">
-						<div class="card h-100">
-							<div class="card-header">
-								<h5 class="card-title mb-0">Messages by Participant</h5>
-							</div>
-							<div class="card-body">
-								<div style="height: 300px;">
-									<canvas id="participantChart"></canvas>
-								</div>
-								<div class="mt-4" id="participant-legend">
-									<div class="d-flex justify-content-between align-items-center mb-2">
-										<div class="d-flex align-items-center">
-											<div class="legend-color" style="background-color: var(--bs-primary);"></div>
-											<span>John Doe</span>
-										</div>
-										<span class="fw-bold">35% (1,302)</span>
-									</div>
-									<div class="d-flex justify-content-between align-items-center mb-2">
-										<div class="d-flex align-items-center">
-											<div class="legend-color" style="background-color: var(--bs-success);"></div>
-											<span>Jane Smith</span>
-										</div>
-										<span class="fw-bold">25% (930)</span>
-									</div>
-									<div class="d-flex justify-content-between align-items-center mb-2">
-										<div class="d-flex align-items-center">
-											<div class="legend-color" style="background-color: var(--bs-info);"></div>
-											<span>Mike Johnson</span>
-										</div>
-										<span class="fw-bold">20% (744)</span>
-									</div>
-									<div class="d-flex justify-content-between align-items-center mb-2">
-										<div class="d-flex align-items-center">
-											<div class="legend-color" style="background-color: var(--bs-warning);"></div>
-											<span>Sarah Williams</span>
-										</div>
-										<span class="fw-bold">15% (558)</span>
-									</div>
-									<div class="d-flex justify-content-between align-items-center">
-										<div class="d-flex align-items-center">
-											<div class="legend-color" style="background-color: var(--bs-danger);"></div>
-											<span>Others</span>
-										</div>
-										<span class="fw-bold">5% (187)</span>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<div class="col-md-6">
-						<div class="card h-100">
-							<div class="card-header">
-								<h5 class="card-title mb-0">Word Cloud</h5>
-							</div>
-							<div class="card-body">
-								<div class="word-cloud-container" id="word-cloud" data-chart-type="word-cloud">
-									<div style="height: 400px; width: 100%;">
-										<canvas id="wordCloudChart"></canvas>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Message Patterns and Media Analysis -->
-				<div class="row g-4 mb-4">
-					<!-- Message Patterns -->
-					<div class="col-md-6">
-						<div class="card h-100">
-							<div class="card-header">
-								<h5 class="card-title mb-0">Message Patterns</h5>
-							</div>
-							<div class="card-body">
-								<!-- Summary Cards -->
-								<div class="row g-3">
-									<div class="col-6">
-										<div class="pattern-card d-flex align-items-center gap-3">
-											<i class="bi bi-clock fs-3 text-primary"></i>
-											<div>
-												<h6>Most Active Time</h6>
-												<p class="mb-0">8:00 PM - 10:00 PM</p>
-											</div>
-										</div>
-									</div>
-									<div class="col-6">
-										<div class="pattern-card d-flex align-items-center gap-3">
-											<i class="bi bi-calendar-day fs-3 text-success"></i>
-											<div>
-												<h6>Most Active Day</h6>
-												<p class="mb-0">Saturday</p>
-											</div>
-										</div>
-									</div>
-									<div class="col-6">
-										<div class="pattern-card d-flex align-items-center gap-3">
-											<i class="bi bi-person-check fs-3 text-info"></i>
-											<div>
-												<h6>Most Active User</h6>
-												<p class="mb-0">John Doe</p>
-											</div>
-										</div>
-									</div>
-									<div class="col-6">
-										<div class="pattern-card d-flex align-items-center gap-3">
-											<i class="bi bi-chat-square-text fs-3 text-warning"></i>
-											<div>
-												<h6>Avg. Message Length</h6>
-												<p class="mb-0">12 words</p>
-											</div>
-										</div>
-									</div>
-								</div>
-
-								<!-- Hourly Activity Chart -->
-								<div class="mt-4">
-									<h6 class="mb-3">Activity by Hour</h6>
-									<div class="chart-container w-100" style="height: 250px;">
-										<canvas id="hourActivityChart"></canvas>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<div class="col-md-6">
-						<div class="card h-100">
-							<div class="card-header">
-								<h5 class="card-title mb-0">Media Analysis</h5>
-							</div>
-							<div class="card-body">
-								<!-- Media Stats -->
-								<div class="media-stats mb-4">
-									<div class="row g-3">
-										<div class="col-6">
-											<div class="media-stat-card d-flex align-items-center gap-3">
-												<i class="bi bi-image fs-3 text-primary"></i>
-												<div>
-													<h3 class="mb-0" id="photos-count">324</h3>
-													<p class="mb-0 text-muted">Photos</p>
-												</div>
-											</div>
-										</div>
-										<div class="col-6">
-											<div class="media-stat-card d-flex align-items-center gap-3">
-												<i class="bi bi-camera-video fs-3 text-success"></i>
-												<div>
-													<h3 class="mb-0" id="videos-count">87</h3>
-													<p class="mb-0 text-muted">Videos</p>
-												</div>
-											</div>
-										</div>
-										<div class="col-6">
-											<div class="media-stat-card d-flex align-items-center gap-3">
-												<i class="bi bi-file-earmark fs-3 text-warning"></i>
-												<div>
-													<h3 class="mb-0" id="documents-count">53</h3>
-													<p class="mb-0 text-muted">Documents</p>
-												</div>
-											</div>
-										</div>
-										<div class="col-6">
-											<div class="media-stat-card d-flex align-items-center gap-3">
-												<i class="bi bi-link-45deg fs-3 text-info"></i>
-												<div>
-													<h3 class="mb-0" id="links-count">118</h3>
-													<p class="mb-0 text-muted">Links</p>
-												</div>
-											</div>
-										</div>
-									</div>
-								</div>
-
-								<!-- Media Sharing Over Time -->
-								<h6 class="mb-3">Media Sharing Over Time</h6>
-								<div class="chart-container w-100" style="height: 280px;">
-									<canvas id="mediaStackedChart"></canvas>
-								</div>
-							</div>
-						</div>
-					</div>
-
-				</div>
-
-				<!-- New Section: Emoji Analysis -->
-				<div class="row mb-4">
-					<div class="col-12">
-						<div class="card">
-							<div class="card-header d-flex justify-content-between align-items-center">
-								<h5 class="card-title mb-0">Emoji Analysis</h5>
-								<button class="btn btn-sm btn-outline-primary">View All</button>
-							</div>
-							<div class="card-body">
-								<div class="row">
-									<!-- Emojis más usados -->
-									<div class="col-md-6">
-										<h6 class="mb-3">Most Used Emojis</h6>
-										<div class="chart-container w-100" style="height: 300px;">
-											<canvas id="mostUsedEmojisChart"></canvas>
-										</div>
-									</div>
-
-									<!-- Uso de emojis por usuario -->
-									<div class="col-md-6">
-										<h6 class="mb-3">Emoji Usage by User</h6>
-										<div class="chart-container w-100" style="height: 300px;">
-											<canvas id="emojiUsageByUserChart"></canvas>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- New Section: Conversation Flow Analysis -->
-				<div class="row mb-4">
-					<div class="col-12">
-						<div class="card">
-							<div class="card-header">
-								<h5 class="card-title mb-0">Conversation Flow Analysis</h5>
-							</div>
-							<div class="card-body">
-								<div class="row g-4">
-									<!-- Initiators -->
-									<div class="col-md-6">
-										<h6 class="mb-3">Conversation Initiators</h6>
-										<div class="chart-container w-100" style="height: 300px;">
-											<canvas id="initiatorChart"></canvas>
-										</div>
-									</div>
-
-									<!-- Response Rates -->
-									<div class="col-md-6">
-										<h6 class="mb-3">Response Rates</h6>
-										<div class="chart-container w-100" style="height: 300px;">
-											<canvas id="responseRateChart"></canvas>
-										</div>
-									</div>
-								</div>
-
-								<!-- Conversation Flow Pattern (visual manual, no Chart.js) -->
-								<div class="row mt-4">
-									<div class="col-12">
-										<h6 class="mb-3">Conversation Patterns</h6>
-										<div class="conversation-flow">
-											<div class="flow-diagram d-flex flex-wrap align-items-center gap-2">
-												<div class="flow-node start-node">Start</div>
-												<span class="flow-arrow"></span>
-												<div class="flow-node">John</div>
-												<span class="flow-arrow"></span>
-												<div class="flow-node">Jane</div>
-												<span class="flow-arrow"></span>
-												<div class="flow-node">Mike</div>
-												<span class="flow-arrow"></span>
-												<div class="flow-node">John</div>
-												<span class="flow-arrow"></span>
-												<div class="flow-node end-node">End</div>
-											</div>
-
-											<div class="flow-stats mt-4">
-												<div class="row g-2">
-													<div class="col-md-3 col-6">
-														<div class="flow-stat-card">
-															<h6>Avg. Conversation Length</h6>
-															<p class="mb-0">8.3 messages</p>
-														</div>
-													</div>
-													<div class="col-md-3 col-6">
-														<div class="flow-stat-card">
-															<h6>Avg. Conversation Duration</h6>
-															<p class="mb-0">24 minutes</p>
-														</div>
-													</div>
-													<div class="col-md-3 col-6">
-														<div class="flow-stat-card">
-															<h6>Most Common Pattern</h6>
-															<p class="mb-0">John → Jane → John</p>
-														</div>
-													</div>
-													<div class="col-md-3 col-6">
-														<div class="flow-stat-card">
-															<h6>Conversation Starters</h6>
-															<p class="mb-0">John (42%)</p>
-														</div>
-													</div>
-												</div>
-											</div>
-
-										</div>
-									</div>
-								</div>
-
-							</div>
-						</div>
-					</div>
-				</div>
-			</main>
-		</div>
-	</div>
-
-	<!-- Footer -->
-	<footer class="footer mt-auto py-3 border-top">
-		<div class="container-fluid">
-			<div class="d-flex flex-wrap justify-content-between align-items-center">
-				<div class="col-md-4 d-flex align-items-center">
-					<span class="text-muted">© 2023 WhatsAnalyzer</span>
-				</div>
-				<ul class="nav col-md-4 justify-content-end list-unstyled d-flex">
-					<li class="ms-3"><a class="text-muted" href="#"><i class="bi bi-github"></i></a></li>
-					<li class="ms-3"><a class="text-muted" href="#"><i class="bi bi-twitter"></i></a></li>
-					<li class="ms-3"><a class="text-muted" href="#"><i class="bi bi-linkedin"></i></a></li>
-				</ul>
+				{% endfor %}
 			</div>
 		</div>
-	</footer>
+		{% endif %}
+		{% endwith %}
 
-	<!-- Upload Modal -->
-	<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
-		<div class="modal-dialog">
-			<div class="modal-content">
-				<form action="{{ url_for('dashboard') }}" method="POST" enctype="multipart/form-data">
-					<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-					<div class="modal-header">
-						<h5 class="modal-title" id="uploadModalLabel">Subir Chat de WhatsApp</h5>
-						<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-					</div>
-					<div class="modal-body">
-						<p>Para analizar tu chat, expórtalo desde WhatsApp:</p>
-						<ol class="mb-4">
-							<li>Abre el chat en WhatsApp</li>
-							<li>Toca los tres puntos > "Más" > "Exportar chat"</li>
-							<li>Elige "Sin Archivos" (Recomendado)</li>
-							<li>Sube el archivo .txt resultante</li>
-						</ol>
-						<div class="mb-3">
-							<label for="chatFile" class="form-label">Selecciona tu archivo exportado:</label>
-							<input class="form-control" type="file" id="chatFile" name="chatFile" accept=".txt" required>
+		<div id="empty-state" class="py-5 text-center" data-section-content="overview">
+			<div class="mb-3">
+				<span class="badge text-bg-primary"><i class="bi bi-stars me-1"></i> Smart chat analysis</span>
+			</div>
+			<h2 class="fw-bold mb-2">Discover insights from your<br><span class="gradient-text">WhatsApp conversations</span></h2>
+			<p class="text-muted mb-4">Upload your exported chat file and get detailed statistics about messages, emojis, most used words and activity patterns.</p>
+			<div class="d-flex justify-content-center gap-3 mb-5">
+				<button class="btn btn-outline-primary" id="use-demo-btn"><i class="bi bi-magic me-1"></i>Try demo chat</button>
+				<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal"><i class="bi bi-cloud-arrow-up me-1"></i>Upload your chat</button>
+			</div>
+
+			<div class="row g-4 justify-content-center mt-4" style="max-width: 900px; margin: 0 auto;">
+				<div class="col-md-4">
+					<div class="feature-card">
+						<div class="icon-wrapper">
+							<i class="bi bi-bar-chart-line-fill"></i>
 						</div>
+						<h6>Detailed statistics</h6>
+						<p>Total messages, words, emojis and much more in a single view.</p>
 					</div>
-					<div class="modal-footer">
-						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-						<button type="submit" class="btn btn-primary">Analizar</button>
+				</div>
+				<div class="col-md-4">
+					<div class="feature-card">
+						<div class="icon-wrapper">
+							<i class="bi bi-people-fill"></i>
+						</div>
+						<h6>Participant analysis</h6>
+						<p>Discover who sends more messages and their communication style.</p>
 					</div>
-				</form>
+				</div>
+				<div class="col-md-4">
+					<div class="feature-card">
+						<div class="icon-wrapper">
+							<i class="bi bi-clock-history"></i>
+						</div>
+						<h6>Temporal patterns</h6>
+						<p>Visualize activity by hour and day of the week.</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="footer-note mt-5">
+				<i class="bi bi-shield-lock-fill me-1"></i> Your data never leaves your browser. 100% private and secure.
 			</div>
 		</div>
-	</div>
 
-	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+		<div id="stats-content" class="d-none">
+			<div id="main-stats" class="row g-3 mb-4" data-section-content="main-stats">
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 0">
+						<div class="card-body">
+							<div class="stat-icon green">
+								<i class="bi bi-chat-text-fill"></i>
+							</div>
+							<h6 class="text-muted mb-1">Total messages</h6>
+							<h3 id="total-messages-value">--</h3>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 1">
+						<div class="card-body">
+							<div class="stat-icon purple">
+								<i class="bi bi-people-fill"></i>
+							</div>
+							<h6 class="text-muted mb-1">Participants</h6>
+							<h3 id="participants-value">--</h3>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 2">
+						<div class="card-body">
+							<div class="stat-icon cyan">
+								<i class="bi bi-calendar-check-fill"></i>
+							</div>
+							<h6 class="text-muted mb-1">Active days</h6>
+							<h3 id="active-days-value">--</h3>
+							<small class="text-muted" id="active-days-detail"></small>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 3">
+						<div class="card-body">
+							<div class="stat-icon yellow">
+								<i class="bi bi-calendar-range-fill"></i>
+							</div>
+							<h6 class="text-muted mb-1">Time span</h6>
+							<p class="mb-0 fw-semibold" id="time-span-value">--</p>
+							<small class="text-muted" id="total-dias-value"></small>
+						</div>
+					</div>
+				</div>
+			</div>
 
-	<script>
-		// Recibimos el JSON de Flask. 'safe' es necesario para que Jinja no escape las comillas
-		const chatData = {{ stats_json | safe }};
+			<div class="row g-3 mb-4">
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 4">
+						<div class="card-body">
+							<div class="stat-icon orange">
+								<i class="bi bi-graph-up-arrow"></i>
+							</div>
+							<h6 class="text-muted mb-1">Avg. messages/day</h6>
+							<h3 id="avg-messages-value">--</h3>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 5">
+						<div class="card-body">
+							<div class="stat-icon pink">
+								<i class="bi bi-hourglass-split"></i>
+							</div>
+							<h6 class="text-muted mb-1">Hours chatting</h6>
+							<h3 id="hours-chatting-value">--</h3>
+							<small class="text-muted">time "wasted" 😅</small>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 6">
+						<div class="card-body">
+							<div class="stat-icon yellow">
+								<i class="bi bi-emoji-smile-fill"></i>
+							</div>
+							<h6 class="text-muted mb-1">Emojis used</h6>
+							<h3 id="emoji-count-value">--</h3>
+						</div>
+					</div>
+				</div>
+				<div class="col-6 col-lg-3">
+					<div class="card stat-card h-100 animate-in" style="--delay: 7">
+						<div class="card-body">
+							<div class="stat-icon cyan">
+								<i class="bi bi-image-fill"></i>
+							</div>
+							<h6 class="text-muted mb-1">Media shared</h6>
+							<h3 id="media-shared-value">--</h3>
+						</div>
+					</div>
+				</div>
+			</div>
 
-		console.log("Datos del chat:", chatData); // Para depurar en consola
-	</script>
+			<div id="activity-charts" class="row g-4 mb-4" data-section-content="activity-charts">
+				<div class="col-lg-8">
+					<div class="card h-100 stat-card animate-in" style="--delay: 8">
+						<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+							<h5 class="mb-0"><i class="bi bi-graph-up-arrow icon-green me-2"></i>Messages per day</h5>
+							<div class="d-flex align-items-center gap-2">
+								<label for="message-range" class="form-label mb-0 small text-muted">Range</label>
+								<select id="message-range" class="form-select form-select-sm w-auto">
+									<option value="7d">Last 7 days</option>
+									<option value="30d">Last 30 days</option>
+									<option value="3m">Last 3 months</option>
+									<option value="6m">Last 6 months</option>
+									<option value="1y">Last year</option>
+									<option value="all" selected>All time</option>
+								</select>
+							</div>
+						</div>
+						<div class="card-body">
+							<canvas id="messageActivityChart" height="180"></canvas>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-4">
+					<div class="card h-100 stat-card animate-in" style="--delay: 9">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-people-fill icon-purple me-2"></i>Participants</h5>
+						</div>
+						<div class="card-body">
+							<canvas id="participantChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
 
-	<!-- Bootstrap JS Bundle with Popper -->
-	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-	<!-- Custom JS -->
-	<script>
-		// Dark mode toggle functionality
-		document.addEventListener('DOMContentLoaded', function () {
-			const darkModeSwitch = document.getElementById('darkModeSwitch');
-			const htmlElement = document.documentElement;
+			<div id="usage-charts" class="row g-4 mb-4" data-section-content="usage-charts">
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 10">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-clock-fill icon-cyan me-2"></i>Activity by hour</h5>
+						</div>
+						<div class="card-body">
+							<canvas id="hourActivityChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 11">
+						<div class="card-header d-flex justify-content-between align-items-center">
+							<h5 class="mb-0"><i class="bi bi-chat-square-text-fill icon-orange me-2"></i>Most used words</h5>
+						</div>
+						<div class="card-body">
+							<canvas id="wordCloudChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
 
-			if (darkModeSwitch) {
-				// Check for saved theme preference or respect OS preference
-				const savedTheme = localStorage.getItem('theme');
-				const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+			<div id="emoji-charts" class="row g-4 mb-4" data-section-content="emoji-charts">
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-emoji-smile-fill icon-yellow me-2"></i>Favorite emojis</h5>
+						</div>
+						<div class="card-body">
+							<canvas id="mostUsedEmojisChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-emoji-laughing-fill icon-pink me-2"></i>Emojis by user</h5>
+						</div>
+						<div class="card-body">
+							<canvas id="emojiUsageByUserChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
 
-				if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-					htmlElement.setAttribute('data-bs-theme', 'dark');
-					darkModeSwitch.checked = true;
+			<div id="stats-charts" class="row g-4 mb-4" data-section-content="stats-charts">
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-pie-chart-fill icon-green me-2"></i>Participation (message %)</h5>
+						</div>
+						<div class="card-body">
+							<canvas id="responseRateChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-trophy-fill icon-yellow me-2"></i>Conversation starters</h5>
+						</div>
+						<div class="card-body">
+							<div id="conversation-starters-podium" class="d-flex flex-column gap-3"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div id="response-charts" class="row g-4 mb-4" data-section-content="response-charts">
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-lightning-fill icon-cyan me-2"></i>Avg. response time</h5>
+						</div>
+						<div class="card-body">
+							<div id="response-time-chart-container">
+								<canvas id="responseTimeChart" height="220"></canvas>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-pencil-fill icon-orange me-2"></i>Avg. words per message</h5>
+						</div>
+						<div class="card-body">
+							<canvas id="wordsPerMessageChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="row mb-4">
+				<div class="col-12">
+					<div class="card download-section animate-in" style="--delay: 3">
+						<div class="card-body d-flex justify-content-center gap-3 flex-wrap py-4">
+							<button class="btn btn-outline-primary" id="download-json-btn">
+								<i class="bi bi-filetype-json me-1"></i> Download JSON
+							</button>
+							<button class="btn btn-outline-primary" id="download-png-btn">
+								<i class="bi bi-image me-1"></i> Download PNG
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="footer-note">
+				<i class="bi bi-shield-lock-fill me-1"></i> Your data never leaves your browser. 100% private and secure.
+			</div>
+		</div>
+
+		<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModalLabel" aria-hidden="true">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<form action="{{ url_for('dashboard') }}" method="POST" enctype="multipart/form-data">
+						<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+						<div class="modal-header">
+							<h5 class="modal-title" id="uploadModalLabel">Upload WhatsApp chat</h5>
+							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+						</div>
+						<div class="modal-body">
+							<p class="mb-2">Export your chat without media and upload the .txt file.</p>
+							<div class="mb-3">
+								<label for="chatFile" class="form-label">.txt file</label>
+								<input class="form-control" type="file" id="chatFile" name="chatFile" accept=".txt" required />
+							</div>
+						</div>
+						<div class="modal-footer">
+							<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+							<button type="submit" class="btn btn-primary">Analyze</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-wordcloud@4"></script>
+		<script id="chat-data" type="application/json">{{ stats_json | safe }}</script>
+		<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+		<script>
+			// Progress Navigation Bar functionality
+			document.addEventListener('DOMContentLoaded', function () {
+				const progressNavBar = document.getElementById('progressNavBar');
+				const progressLine = document.getElementById('progressLine');
+				const progressPoints = document.querySelectorAll('.progress-point');
+				const sections = document.querySelectorAll('[data-section-content]');
+
+				// Only show progress bar when stats are visible
+				function updateProgressBarVisibility() {
+					const statsContent = document.getElementById('stats-content');
+					if (statsContent && !statsContent.classList.contains('d-none')) {
+						progressNavBar.classList.add('visible');
+					} else {
+						progressNavBar.classList.remove('visible');
+					}
 				}
 
-				// Toggle theme when switch is clicked
-				darkModeSwitch.addEventListener('change', function () {
-					if (this.checked) {
-						htmlElement.setAttribute('data-bs-theme', 'dark');
-						localStorage.setItem('theme', 'dark');
-					} else {
-						htmlElement.setAttribute('data-bs-theme', 'light');
-						localStorage.setItem('theme', 'light');
+				// Update progress line and active points based on scroll
+				function updateProgress() {
+					if (!progressNavBar.classList.contains('visible')) return;
+
+					const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+					const windowHeight = window.innerHeight;
+					const documentHeight = document.documentElement.scrollHeight;
+
+					let currentSection = null;
+					let maxProgress = 0;
+
+					// Find current section
+					sections.forEach((section, index) => {
+						const rect = section.getBoundingClientRect();
+						const sectionTop = rect.top + scrollTop;
+						const sectionBottom = sectionTop + rect.height;
+						const threshold = windowHeight * 0.3;
+
+						if (scrollTop + threshold >= sectionTop && scrollTop < sectionBottom) {
+							currentSection = section.getAttribute('data-section-content');
+							maxProgress = index;
+						}
+					});
+
+					// Update active points
+					progressPoints.forEach((point, index) => {
+						if (index <= maxProgress) {
+							point.classList.add('active');
+						} else {
+							point.classList.remove('active');
+						}
+
+						if (point.getAttribute('data-section') === currentSection) {
+							point.classList.add('current');
+						} else {
+							point.classList.remove('current');
+						}
+					});
+
+					// Update progress line height
+					if (progressPoints.length > 0) {
+						const firstPoint = progressPoints[0];
+						const lastActivePoint = progressPoints[maxProgress];
+						if (lastActivePoint) {
+							const height = lastActivePoint.offsetTop - firstPoint.offsetTop;
+							progressLine.style.height = `${height}px`;
+						}
+					}
+				}
+
+				// Smooth scroll to section
+				progressPoints.forEach(point => {
+					point.addEventListener('click', () => {
+						const sectionName = point.getAttribute('data-section');
+						const targetSection = document.querySelector(`[data-section-content="${sectionName}"]`);
+						if (targetSection) {
+							const offsetTop = targetSection.offsetTop - 80; // Account for navbar
+							window.scrollTo({
+								top: offsetTop,
+								behavior: 'smooth'
+							});
+						}
+					});
+				});
+
+				// Listen for scroll events
+				let scrollTimeout;
+				window.addEventListener('scroll', () => {
+					clearTimeout(scrollTimeout);
+					scrollTimeout = setTimeout(updateProgress, 10);
+				});
+
+				// Watch for stats content visibility changes
+				const observer = new MutationObserver(updateProgressBarVisibility);
+				const statsContent = document.getElementById('stats-content');
+				if (statsContent) {
+					observer.observe(statsContent, { attributes: true, attributeFilter: ['class'] });
+				}
+
+				// Initial update
+				updateProgressBarVisibility();
+				setTimeout(updateProgress, 100);
+			});
+
+			// Fix mobile navbar toggle - close menu when clicking links or outside
+			document.addEventListener('DOMContentLoaded', function () {
+				const navbarCollapse = document.getElementById('navbarSupportedContent');
+				const navbarToggler = document.querySelector('.navbar-toggler');
+
+				// Close navbar when clicking a nav link on mobile
+				document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+					link.addEventListener('click', () => {
+						if (window.innerWidth < 992 && navbarCollapse.classList.contains('show')) {
+							bootstrap.Collapse.getInstance(navbarCollapse)?.hide();
+						}
+					});
+				});
+
+				// Close navbar when clicking outside
+				document.addEventListener('click', (e) => {
+					if (window.innerWidth < 992 &&
+						navbarCollapse.classList.contains('show') &&
+						!navbarCollapse.contains(e.target) &&
+						!navbarToggler.contains(e.target)) {
+						bootstrap.Collapse.getInstance(navbarCollapse)?.hide();
 					}
 				});
-			}
-
-			// This would be where backend integration code would go
-			// Example of how to fetch and update data from backend
-			function fetchDataFromBackend() {
-				// Simulating backend data fetch
-				console.log('Fetching data from backend...');
-				// In a real implementation, this would be an API call
-				// fetch('/api/chat-analysis')
-				//   .then(response => response.json())
-				//   .then(data => updateDashboard(data));
-			}
-
-			// Example function to update dashboard with data
-			function updateDashboard(data) {
-				// This would update all the data points with real values
-				// document.getElementById('total-messages-value').textContent = data.totalMessages;
-				// And so on for all data points
-			}
-
-			// Call this function when data needs to be refreshed
-			// fetchDataFromBackend();
-		});
-	</script>
-
-	<script>
-		const ctx = document.getElementById('messageActivityChart').getContext('2d');
-
-		const messageActivityChart = new Chart(ctx, {
-			type: 'bar',
-			data: {
-				labels: ['Apr 15', 'Apr 22', 'Apr 29', 'May 06', 'May 13', 'May 20'],
-				datasets: [{
-					label: 'Messages Sent',
-					data: [30, 45, 60, 40, 75, 90],
-					backgroundColor: 'rgba(54, 162, 235, 0.6)',
-					borderColor: 'rgba(54, 162, 235, 1)',
-					borderWidth: 1,
-					hoverBackgroundColor: 'rgba(75, 192, 192, 0.8)',
-					hoverBorderColor: 'rgba(75, 192, 192, 1)'
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					tooltip: {
-						enabled: true,
-						backgroundColor: '#000',
-						titleColor: '#fff',
-						bodyColor: '#fff'
-					},
-					legend: {
-						display: true,
-						position: 'top'
-					}
-				},
-				scales: {
-					y: {
-						beginAtZero: true,
-						ticks: {
-							stepSize: 10
-						},
-						title: {
-							display: true,
-							text: 'Number of Messages'
-						}
-					},
-					x: {
-						title: {
-							display: true,
-							text: 'Date'
-						}
-					}
-				}
-			}
-		});
-
-		// ----
-
-		const participantCtx = document.getElementById('participantChart').getContext('2d');
-
-		const participantChart = new Chart(participantCtx, {
-			type: 'doughnut',
-			data: {
-				labels: ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Williams', 'Others'],
-				datasets: [{
-					label: 'Messages by Participant',
-					data: [1302, 930, 744, 558, 187],
-					backgroundColor: [
-						'#4e73df', // Azul
-						'#1cc88a', // Verde
-						'#36b9cc', // Cian
-						'#f6c23e', // Amarillo
-						'#e74a3b'  // Rojo
-					],
-					borderColor: '#ffffff',
-					borderWidth: 2
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					tooltip: {
-						backgroundColor: '#343a40',
-						titleColor: '#fff',
-						bodyColor: '#fff'
-					},
-					legend: {
-						display: true,
-						position: 'bottom',
-						labels: {
-							color: '#333',
-							font: {
-								weight: 'bold'
-							}
-						}
-					}
-				},
-			}
-		});
-
-		// ----
-
-		const wordCtx = document.getElementById('wordCloudChart').getContext('2d');
-
-		const wordCloud = new Chart(wordCtx, {
-			type: 'wordCloud',
-			data: {
-				labels: [
-					'hello', 'thanks', 'meeting', 'lol', 'tomorrow',
-					'weekend', 'dinner', 'morning', 'please', 'sorry',
-					'time', 'today', 'night', 'cool', 'great', 'sure', 'work', 'home', 'call', 'haha'
-				],
-				datasets: [{
-					label: 'Word Frequency',
-					data: [
-						100, 90, 80, 100, 40,
-						85, 70, 40, 100, 60,
-						80, 40, 70, 90, 100, 40, 70, 80, 40, 60
-					],
-					color: function (context) {
-						// colores suaves tipo pastel
-						const colors = [
-							'#5DADE2', '#48C9B0', '#F5B041', '#AF7AC5',
-							'#EC7063', '#F4D03F', '#45B39D', '#BB8FCE'
-						];
-						return colors[Math.floor(Math.random() * colors.length)];
-					}
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: {
-						display: false
-					}
-				},
-				layout: {
-					padding: 20
-				}
-			}
-		});
-
-		// ----
-
-		// Hourly Message Activity
-		new Chart(document.getElementById('hourActivityChart'), {
-			type: 'bar',
-			data: {
-				labels: [
-					'12am', '1am', '2am', '3am', '4am', '5am',
-					'6am', '7am', '8am', '9am', '10am', '11am',
-					'12pm', '1pm', '2pm', '3pm', '4pm', '5pm',
-					'6pm', '7pm', '8pm', '9pm', '10pm', '11pm'
-				],
-				datasets: [{
-					label: 'Messages',
-					data: [
-						10, 5, 3, 2, 5, 15, 25, 35, 45, 55, 60, 50,
-						65, 55, 45, 50, 60, 75, 90, 100, 80, 60, 40, 20
-					],
-					backgroundColor: '#3b82f6',
-					borderRadius: 4
-				}]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				scales: {
-					y: {
-						beginAtZero: true,
-						ticks: {
-							stepSize: 20
-						}
-					}
-				},
-				plugins: {
-					legend: { display: false }
-				}
-			}
-		});
-
-		// ----
-
-		// Media Sharing Over Time (Stacked Bar Chart)
-		new Chart(document.getElementById('mediaStackedChart'), {
-			type: 'bar',
-			data: {
-				labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-				datasets: [
-					{
-						label: 'Photos',
-						data: [60, 50, 40, 45, 55],
-						backgroundColor: '#3b82f6' // blue
-					},
-					{
-						label: 'Videos',
-						data: [20, 25, 30, 25, 20],
-						backgroundColor: '#10b981' // green
-					},
-					{
-						label: 'Documents',
-						data: [10, 15, 20, 15, 15],
-						backgroundColor: '#f59e0b' // yellow
-					},
-					{
-						label: 'Links',
-						data: [10, 10, 10, 15, 10],
-						backgroundColor: '#06b6d4' // cyan
-					}
-				]
-			},
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: {
-						position: 'bottom'
-					},
-					tooltip: {
-						mode: 'index',
-						intersect: false
-					}
-				},
-				scales: {
-					x: {
-						stacked: true
-					},
-					y: {
-						stacked: true,
-						beginAtZero: true,
-						ticks: {
-							stepSize: 20
-						}
-					}
-				}
-			}
-		});
-
-		// ----
-
-		const emojiData = {
-			labels: ['😂', '👍', '❤️', '😊', '🙏', '😍', '🎉', '🔥'],
-			datasets: [{
-				label: 'Uses',
-				data: [245, 187, 156, 132, 98, 87, 76, 65],
-				backgroundColor: '#f59e0b', // naranja suave
-				borderRadius: 6
-			}]
-		};
-
-		new Chart(document.getElementById('mostUsedEmojisChart'), {
-			type: 'bar',
-			data: emojiData,
-			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				scales: {
-					y: {
-						beginAtZero: true,
-						ticks: { stepSize: 50 }
-					}
-				},
-				plugins: {
-					legend: { display: false }
-				}
-			}
-		});
-
-		// Gráfico de uso de emojis por usuario
-		const userEmojiData = {
-			labels: ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Williams', 'Others'],
-			datasets: [{
-				label: 'Emojis Sent',
-				data: [425, 325, 250, 200, 45],
-				backgroundColor: ['#3b82f6', '#10b981', '#0ea5e9', '#facc15', '#ef4444'],
-				borderRadius: 6
-			}]
-		};
-
-		new Chart(document.getElementById('emojiUsageByUserChart'), {
-			type: 'bar',
-			data: userEmojiData,
-			options: {
-				indexAxis: 'y', // barras horizontales
-				responsive: true,
-				maintainAspectRatio: false,
-				scales: {
-					x: {
-						beginAtZero: true,
-						ticks: { stepSize: 50 }
-					}
-				},
-				plugins: {
-					legend: { display: false }
-				}
-			}
-		});
-
-		// ----
-
-		new Chart(document.getElementById('initiatorChart'), {
-			type: 'bar',
-			data: {
-				labels: ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Williams', 'Others'],
-				datasets: [{
-					label: 'Initiated Conversations (%)',
-					data: [35, 25, 20, 15, 5],
-					backgroundColor: ['#3b82f6', '#10b981', '#0ea5e9', '#facc15', '#ef4444'],
-					borderRadius: 6
-				}]
-			},
-			options: {
-				indexAxis: 'y',
-				responsive: true,
-				maintainAspectRatio: false,
-				scales: {
-					x: {
-						max: 100,
-						ticks: {
-							callback: value => value + '%'
-						}
-					}
-				},
-				plugins: {
-					legend: { display: false }
-				}
-			}
-		});
-
-		// Response Rate Chart
-		new Chart(document.getElementById('responseRateChart'), {
-			type: 'bar',
-			data: {
-				labels: ['John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Williams', 'Group Average'],
-				datasets: [{
-					label: 'Response Rate (%)',
-					data: [90, 85, 75, 65, 78],
-					backgroundColor: ['#3b82f6', '#10b981', '#0ea5e9', '#facc15', '#6b7280'],
-					borderRadius: 6
-				}]
-			},
-			options: {
-				indexAxis: 'y',
-				responsive: true,
-				maintainAspectRatio: false,
-				scales: {
-					x: {
-						max: 100,
-						ticks: {
-							callback: value => value + '%'
-						}
-					}
-				},
-				plugins: {
-					legend: { display: false }
-				}
-			}
-		});
-	</script>
+			});
+		</script>
 
 </body>
-
 
 {% endblock %}

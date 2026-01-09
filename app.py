@@ -7,35 +7,40 @@ from flask import (
     flash,
 )
 from flask_wtf.csrf import CSRFProtect
-from flask_login import (
-    LoginManager,
-    login_user,
-    logout_user,
-    current_user,
-)
 from config import config, Config
 import os
 import logging
-from db_manager import DatabaseManager
-from werkzeug.utils import secure_filename
+import io
+import time
 from whatsapp_statistics import (
-    parse_chat,
     analyze_messages,
+    parse_chat_stream,
 )
 import json
+from utils import FileValidator, format_file_size
 
-# Modelos
-from models.ModelUser import ModelUser
 
-# Entidades
-from models.entities.User import User
+# Configure minimal logging - NO file logging for privacy
+def setup_logging(app):
+    """Configure minimal console-only logging. NO files, NO user data stored."""
+    log_level = logging.ERROR  # Only errors, not info about files/users
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.FileHandler("app.log"), logging.StreamHandler()],
-)
+    # Simple formatter without sensitive details
+    simple_formatter = logging.Formatter(
+        "[%(asctime)s] %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+    # Console handler ONLY - no file logging for privacy
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(simple_formatter)
+    console_handler.setLevel(log_level)
+
+    # Configure app logger
+    app.logger.handlers = []
+    app.logger.addHandler(console_handler)
+    app.logger.setLevel(log_level)
+
+
 logger = logging.getLogger("app")
 
 env = os.getenv("FLASK_ENV", "development")
@@ -43,8 +48,27 @@ config_class = config.get(env, Config)
 
 app = Flask(__name__)
 app.config.from_object(config_class)
+
+# Setup minimal logging
+setup_logging(app)
+
+# Validate configuration
+try:
+    config_class.validate_required_settings()
+except ValueError as e:
+    logger.error(f"Configuration error: {e}")
+    raise
+
 config_class.enforce_security(app)
+
+# Initialize CSRF protection
 csrf = CSRFProtect(app)
+
+# Initialize file validator
+file_validator = FileValidator(
+    allowed_extensions=app.config.get("ALLOWED_EXTENSIONS", {"txt"}),
+    max_size_bytes=app.config.get("MAX_CONTENT_LENGTH", 10 * 1024 * 1024),
+)
 
 
 def _merge_csp_sources(defaults, env_key):
@@ -73,6 +97,7 @@ def _build_content_security_policy():
             "'unsafe-inline'",
             "https://cdn.jsdelivr.net",
             "https://site-assets.fontawesome.com",
+            "https://fonts.googleapis.com",
         ],
         "CSP_EXTRA_STYLE_SRC",
     )
@@ -81,6 +106,7 @@ def _build_content_security_policy():
             "'self'",
             "https://cdn.jsdelivr.net",
             "https://site-assets.fontawesome.com",
+            "https://fonts.gstatic.com",
             "data:",
         ],
         "CSP_EXTRA_FONT_SRC",
@@ -108,49 +134,21 @@ def _build_content_security_policy():
     )
 
 
-# Inicializar el gestor de base de datos
-db_manager = DatabaseManager.get_instance()
-
-login_manager_app = LoginManager(app)
-
 # Configuración para subida de archivos
 UPLOAD_FOLDER = os.path.join(app.instance_path, "uploads")
-ALLOWED_EXTENSIONS = {"txt"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config.setdefault(
-    "MAX_CONTENT_LENGTH", int(os.getenv("MAX_CONTENT_LENGTH", 5 * 1024 * 1024))
-)
+
+# Crear carpeta uploads si no existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": _build_content_security_policy(),
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
+    "X-XSS-Protection": "1; mode=block",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 }
-
-# Crear carpeta uploads si no existe
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-@login_manager_app.user_loader
-def load_user(id):
-    try:
-        return ModelUser.get_by_id(db_manager, id)
-    except Exception as e:
-        return None
-
-
-# Manejador de errores para conexiones de base de datos
-def handle_db_error(e):
-    logger.error(f"Error de base de datos: {e}")
-    flash(
-        "Ha ocurrido un error de conexión a la base de datos. Inténtelo de nuevo en unos momentos."
-    )
-    return redirect(url_for("dashboard"))
 
 
 @app.after_request
@@ -169,145 +167,81 @@ def index():
     return redirect(url_for("dashboard"))
 
 
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    try:
-        if current_user.is_authenticated:
-            # Si el usuario ya está autenticado, redirige al home
-            return redirect(url_for("dashboard"))
-
-        if request.method == "POST":
-            username = request.form["username"]
-            email = request.form["email"]
-            password = request.form["password"]
-            confirm_password = request.form["confirm_password"]
-
-            if password == confirm_password:
-                if not ModelUser.is_email_taken(db_manager, email):
-                    new_user = User(
-                        0, username=username, password=password, email=email
-                    )
-                    logged_user = ModelUser.register(db_manager, new_user)
-                    if logged_user is not None and logged_user.password:
-                        # Loguea automáticamente al usuario recién registrado
-                        login_user(logged_user)
-                        flash(
-                            "Usuario creado como '{}', ahora inicia sesión".format(
-                                username
-                            )
-                        )
-                        return redirect(url_for("login"))
-                else:
-                    flash("Este email ya está en uso...")
-            else:
-                flash("Las contraseñas no coinciden...")
-
-        # Renderiza el template auth/register.html
-        return render_template("auth/register.html")
-    except Exception as e:
-        logger.error(f"Error en registro: {e}")
-        flash(
-            "Ha ocurrido un error durante el registro. Por favor, inténtelo de nuevo."
-        )
-        return redirect(url_for("register"))
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    try:
-        if current_user.is_authenticated:
-            # Si el usuario ya está autenticado, redirige al home
-            return redirect(url_for("dashboard"))
-
-        if request.method == "POST":
-            remember = "remember" in request.form
-            user = User(0, request.form["username"], request.form["password"])
-            logged_user = ModelUser.login(db_manager, user)
-
-            if logged_user is not None and logged_user.password:
-                login_user(logged_user, remember)
-                return redirect(url_for("dashboard"))
-            else:
-                flash("Usuario o contraseña incorrectos...")
-
-        return render_template("auth/login.html")
-    except Exception as e:
-        logger.error(f"Error en login: {e}")
-        flash(
-            "Ha ocurrido un error durante el inicio de sesión. Por favor, inténtelo de nuevo."
-        )
-        return redirect(url_for("login"))
-
-
-@app.route("/logout")
-def logout():
-    logout_user()
-    return redirect(url_for("login"))
-
-
 @app.route("/dashboard", methods=["GET", "POST"])
 def dashboard():
+    """Main dashboard"""
     try:
-        # Datos por defecto (vacíos o de ejemplo) para cuando entra por GET
         analysis_data = None
 
         if request.method == "POST":
-            # Verificar si el post tiene la parte del archivo
+            # Check if file is in request
             if "chatFile" not in request.files:
-                flash("No se encontró el archivo")
+                flash("File not found in the request", "error")
                 return redirect(request.url)
 
             file = request.files["chatFile"]
 
-            if file.filename == "":
-                flash("No se seleccionó ningún archivo")
+            # Validate file using FileValidator
+            is_valid, error_message, metadata = file_validator.validate_file(file)
+
+            if not is_valid:
+                flash(error_message, "error")
                 return redirect(request.url)
 
-            if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-                file.save(filepath)
+            file_size = metadata["size"]
 
+            try:
+                start_time = time.time()
+
+                # Read file content (in memory only)
+                raw_bytes = file.stream.read()
+                if not raw_bytes:
+                    flash("The file is empty", "error")
+                    return redirect(request.url)
+
+                # Decode with fallback encoding
                 try:
-                    # 1. Analizar el archivo usando tu lógica existente
-                    # Nota: Modifiqué un poco el flujo para no depender de process_chat escribiendo json en disco
-                    messages = parse_chat(filepath)
-                    stats = analyze_messages(messages)
+                    text_content = raw_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    text_content = raw_bytes.decode("latin-1")
 
-                    # 2. Pasamos los datos a la variable que irá al template
-                    analysis_data = stats
+                # Parse and analyze chat (all in memory, no storage)
+                messages = parse_chat_stream(io.StringIO(text_content))
 
-                    flash("¡Análisis completado con éxito!")
+                if not messages:
+                    flash("No valid WhatsApp messages found in the file", "warning")
+                    return redirect(request.url)
 
-                except Exception as e:
-                    logger.error(f"Error analizando el chat: {e}")
-                    flash(f"Error al procesar el archivo: {str(e)}")
-                finally:
-                    # 3. Limpieza: Borrar el archivo subido por privacidad
-                    if os.path.exists(filepath):
-                        os.remove(filepath)
-            else:
-                flash("Formato de archivo no permitido. Solo se admite .txt")
+                # Analyze messages
+                stats = analyze_messages(messages)
+                analysis_data = stats
 
-        # Si hay datos de análisis, los pasamos. Si no, pasamos None.
-        # Serializamos a JSON string para que JS lo pueda leer fácilmente
+                processing_time = time.time() - start_time
+
+                # Success message emphasizing privacy
+                flash(
+                    f"Analysis completed! Processed {len(messages)} messages in {processing_time:.2f}s. "
+                )
+
+            except ValueError as ve:
+                flash(f"Invalid file format: {str(ve)}", "error")
+            except UnicodeDecodeError:
+                flash(
+                    "Unable to read file. Please ensure it's a text file with UTF-8 or Latin-1 encoding",
+                    "error",
+                )
+            except Exception as e:
+                flash(f"Error processing the file: {str(e)}", "error")
+
         stats_json = (
             json.dumps(analysis_data, ensure_ascii=False) if analysis_data else "null"
         )
 
-        return render_template(
-            "dashboard.html", stats_json=stats_json  # Variable clave para el frontend
-        )
+        return render_template("dashboard.html", stats_json=stats_json)
 
     except Exception as e:
-        logger.error(f"Error en dashboard: {e}")
-        flash(f"Ha ocurrido un error inesperado.")
-        return render_template("error.html")
-
-
-@app.route("/protected")
-def protected():
-    return "<h1>No tienes acceso a esta sección, por favor inicia sesión.</h1>"
+        flash("An unexpected error occurred. Please try again.", "error")
+        return render_template("error.html", error=str(e))
 
 
 def status_401(error):
@@ -315,7 +249,15 @@ def status_401(error):
 
 
 def status_404(error):
-    return "<h1>Página no encontrada.</h1>"
+    return "<h1>Page not found.</h1>"
+
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Handle file too large error."""
+    max_mb = app.config.get("MAX_CONTENT_LENGTH", 0) / (1024 * 1024)
+    flash(f"File too large. Maximum size allowed: {max_mb:.1f}MB", "error")
+    return redirect(url_for("dashboard"))
 
 
 if __name__ == "__main__":

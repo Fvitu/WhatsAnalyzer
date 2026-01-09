@@ -21,3 +21,4 @@ Thumbs.db
 chats/*
 WhatsAnalyzer.code-workspace
 WhatsAnalyzer.zip
+.pytest_cache
