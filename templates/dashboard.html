@@ -2,6 +2,31 @@
 {% block title %}Dashboard{% endblock %}
 {% block customCSS %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+<style>
+	/* Theme switch icons */
+	.theme-switch-container {
+		display: inline-flex;
+		align-items: center;
+		gap: .4rem;
+	}
+
+	.theme-icon {
+		font-size: 1rem;
+		cursor: pointer;
+		color: var(--bs-body-color);
+		opacity: .85;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.theme-icon:active {
+		transform: scale(.95);
+	}
+
+	.theme-icon:hover {
+		opacity: 1;
+	}
+</style>
 {% endblock %}
 {% block body %}
 
@@ -17,14 +42,22 @@
 			</button>
 			<div class="collapse navbar-collapse" id="navbarSupportedContent">
 				<ul class="navbar-nav me-auto mb-2 mb-lg-0">
-					<li class="nav-item"><a class="nav-link active" aria-current="page" href="{{ url_for('dashboard') }}">Dashboard</a></li>
+					<li class="nav-item"><a class="nav-link active" aria-current="page" href="{{ url_for('dashboard') }}" data-i18n="nav.dashboard">Dashboard</a></li>
 				</ul>
 				<div class="d-flex align-items-center gap-3">
 					<button type="button" class="btn btn-sm btn-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#uploadModal">
-						<i class="bi bi-upload me-1"></i> Upload chat
+						<i class="bi bi-upload me-1"></i><span data-i18n="nav.uploadChat">Upload chat</span>
 					</button>
-					<div class="form-check form-switch mb-0">
-						<input class="form-check-input" type="checkbox" id="darkModeSwitch" />
+					<select id="languageSelect" class="form-select form-select-sm" style="width: auto; min-width: 90px;">
+						<option value="en">🇺🇸 EN</option>
+						<option value="es">🇪🇸 ES</option>
+					</select>
+					<div class="theme-switch-container">
+						<i class="bi bi-sun-fill theme-icon" role="button" tabindex="0" title="Light" aria-label="Light mode" onclick="document.getElementById('darkModeSwitch').click()"></i>
+						<div class="form-check form-switch mb-0">
+							<input class="form-check-input" type="checkbox" id="darkModeSwitch" />
+						</div>
+						<i class="bi bi-moon-fill theme-icon" role="button" tabindex="0" title="Dark" aria-label="Dark mode" onclick="document.getElementById('darkModeSwitch').click()"></i>
 					</div>
 					<span class="version-badge">v2.0</span>
 				</div>
@@ -35,26 +68,29 @@
 	<!-- Progress Navigation Bar -->
 	<div class="progress-nav-bar" id="progressNavBar">
 		<div class="progress-line" id="progressLine"></div>
-		<div class="progress-point active" data-section="overview" title="Overview">
-			<span class="progress-label">Overview</span>
+		<div class="progress-point active" data-section="overview" data-i18n-title="progress.overview">
+			<span class="progress-label" data-i18n="progress.overview">Overview</span>
 		</div>
-		<div class="progress-point" data-section="main-stats" title="Main Statistics">
-			<span class="progress-label">Main Stats</span>
+		<div class="progress-point" data-section="main-stats" data-i18n-title="progress.mainStats">
+			<span class="progress-label" data-i18n="progress.mainStats">Main Stats</span>
 		</div>
-		<div class="progress-point" data-section="activity-charts" title="Activity Charts">
-			<span class="progress-label">Activity</span>
+		<div class="progress-point" data-section="activity-charts" data-i18n-title="progress.activity">
+			<span class="progress-label" data-i18n="progress.activity">Activity</span>
 		</div>
-		<div class="progress-point" data-section="usage-charts" title="Usage Patterns">
-			<span class="progress-label">Usage</span>
+		<div class="progress-point" data-section="usage-charts" data-i18n-title="progress.usage">
+			<span class="progress-label" data-i18n="progress.usage">Usage</span>
 		</div>
-		<div class="progress-point" data-section="emoji-charts" title="Emoji Analysis">
-			<span class="progress-label">Emojis</span>
+		<div class="progress-point" data-section="emoji-charts" data-i18n-title="progress.emojis">
+			<span class="progress-label" data-i18n="progress.emojis">Emojis</span>
 		</div>
-		<div class="progress-point" data-section="stats-charts" title="Statistics">
-			<span class="progress-label">Statistics</span>
+		<div class="progress-point" data-section="sentiment-charts" data-i18n-title="progress.sentiment">
+			<span class="progress-label" data-i18n="progress.sentiment">Sentiment</span>
 		</div>
-		<div class="progress-point" data-section="response-charts" title="Response Analysis">
-			<span class="progress-label">Response</span>
+		<div class="progress-point" data-section="stats-charts" data-i18n-title="progress.statistics">
+			<span class="progress-label" data-i18n="progress.statistics">Statistics</span>
+		</div>
+		<div class="progress-point" data-section="response-charts" data-i18n-title="progress.response">
+			<span class="progress-label" data-i18n="progress.response">Response</span>
 		</div>
 	</div>
 
@@ -76,13 +112,13 @@
 
 		<div id="empty-state" class="py-5 text-center" data-section-content="overview">
 			<div class="mb-3">
-				<span class="badge text-bg-primary"><i class="bi bi-stars me-1"></i> Smart chat analysis</span>
+				<span class="badge text-bg-primary"><i class="bi bi-stars me-1"></i><span data-i18n="empty.badge">Smart chat analysis</span></span>
 			</div>
-			<h2 class="fw-bold mb-2">Discover insights from your<br><span class="gradient-text">WhatsApp conversations</span></h2>
-			<p class="text-muted mb-4">Upload your exported chat file and get detailed statistics about messages, emojis, most used words and activity patterns.</p>
+			<h2 class="fw-bold mb-2"><span data-i18n="empty.title">Discover insights from your</span><br><span class="gradient-text" data-i18n="empty.titleHighlight">WhatsApp conversations</span></h2>
+			<p class="text-muted mb-4" data-i18n="empty.description">Upload your exported chat file and get detailed statistics about messages, emojis, most used words and activity patterns.</p>
 			<div class="d-flex justify-content-center gap-3 mb-5">
-				<button class="btn btn-outline-primary" id="use-demo-btn"><i class="bi bi-magic me-1"></i>Try demo chat</button>
-				<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal"><i class="bi bi-cloud-arrow-up me-1"></i>Upload your chat</button>
+				<button class="btn btn-outline-primary" id="use-demo-btn"><i class="bi bi-magic me-1"></i><span data-i18n="empty.demoBtn">Try demo chat</span></button>
+				<button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal"><i class="bi bi-cloud-arrow-up me-1"></i><span data-i18n="empty.uploadBtn">Upload your chat</span></button>
 			</div>
 
 			<div class="row g-4 justify-content-center mt-4" style="max-width: 900px; margin: 0 auto;">
@@ -91,8 +127,8 @@
 						<div class="icon-wrapper">
 							<i class="bi bi-bar-chart-line-fill"></i>
 						</div>
-						<h6>Detailed statistics</h6>
-						<p>Total messages, words, emojis and much more in a single view.</p>
+						<h6 data-i18n="feature.stats.title">Detailed statistics</h6>
+						<p data-i18n="feature.stats.desc">Total messages, words, emojis and much more in a single view.</p>
 					</div>
 				</div>
 				<div class="col-md-4">
@@ -100,8 +136,8 @@
 						<div class="icon-wrapper">
 							<i class="bi bi-people-fill"></i>
 						</div>
-						<h6>Participant analysis</h6>
-						<p>Discover who sends more messages and their communication style.</p>
+						<h6 data-i18n="feature.participants.title">Participant analysis</h6>
+						<p data-i18n="feature.participants.desc">Discover who sends more messages and their communication style.</p>
 					</div>
 				</div>
 				<div class="col-md-4">
@@ -109,14 +145,14 @@
 						<div class="icon-wrapper">
 							<i class="bi bi-clock-history"></i>
 						</div>
-						<h6>Temporal patterns</h6>
-						<p>Visualize activity by hour and day of the week.</p>
+						<h6 data-i18n="feature.temporal.title">Temporal patterns</h6>
+						<p data-i18n="feature.temporal.desc">Visualize activity by hour and day of the week.</p>
 					</div>
 				</div>
 			</div>
 
 			<div class="footer-note mt-5">
-				<i class="bi bi-shield-lock-fill me-1"></i> Your data never leaves your browser. 100% private and secure.
+				<i class="bi bi-shield-lock-fill me-1"></i><span data-i18n="footer.privacy">Your data never leaves your browser. 100% private and secure.</span>
 			</div>
 		</div>
 
@@ -128,7 +164,7 @@
 							<div class="stat-icon green">
 								<i class="bi bi-chat-text-fill"></i>
 							</div>
-							<h6 class="text-muted mb-1">Total messages</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.totalMessages">Total messages</h6>
 							<h3 id="total-messages-value">--</h3>
 						</div>
 					</div>
@@ -139,7 +175,7 @@
 							<div class="stat-icon purple">
 								<i class="bi bi-people-fill"></i>
 							</div>
-							<h6 class="text-muted mb-1">Participants</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.participants">Participants</h6>
 							<h3 id="participants-value">--</h3>
 						</div>
 					</div>
@@ -150,7 +186,7 @@
 							<div class="stat-icon cyan">
 								<i class="bi bi-calendar-check-fill"></i>
 							</div>
-							<h6 class="text-muted mb-1">Active days</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.activeDays">Active days</h6>
 							<h3 id="active-days-value">--</h3>
 							<small class="text-muted" id="active-days-detail"></small>
 						</div>
@@ -162,7 +198,7 @@
 							<div class="stat-icon yellow">
 								<i class="bi bi-calendar-range-fill"></i>
 							</div>
-							<h6 class="text-muted mb-1">Time span</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.timeSpan">Time span</h6>
 							<p class="mb-0 fw-semibold" id="time-span-value">--</p>
 							<small class="text-muted" id="total-dias-value"></small>
 						</div>
@@ -177,7 +213,7 @@
 							<div class="stat-icon orange">
 								<i class="bi bi-graph-up-arrow"></i>
 							</div>
-							<h6 class="text-muted mb-1">Avg. messages/day</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.avgMessages">Avg. messages/day</h6>
 							<h3 id="avg-messages-value">--</h3>
 						</div>
 					</div>
@@ -188,9 +224,9 @@
 							<div class="stat-icon pink">
 								<i class="bi bi-hourglass-split"></i>
 							</div>
-							<h6 class="text-muted mb-1">Hours chatting</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.hoursChatting">Hours chatting</h6>
 							<h3 id="hours-chatting-value">--</h3>
-							<small class="text-muted">time "wasted" 😅</small>
+							<small class="text-muted" data-i18n="stats.timeWasted">time "wasted" 😅</small>
 						</div>
 					</div>
 				</div>
@@ -200,7 +236,7 @@
 							<div class="stat-icon yellow">
 								<i class="bi bi-emoji-smile-fill"></i>
 							</div>
-							<h6 class="text-muted mb-1">Emojis used</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.emojisUsed">Emojis used</h6>
 							<h3 id="emoji-count-value">--</h3>
 						</div>
 					</div>
@@ -211,7 +247,7 @@
 							<div class="stat-icon cyan">
 								<i class="bi bi-image-fill"></i>
 							</div>
-							<h6 class="text-muted mb-1">Media shared</h6>
+							<h6 class="text-muted mb-1" data-i18n="stats.mediaShared">Media shared</h6>
 							<h3 id="media-shared-value">--</h3>
 						</div>
 					</div>
@@ -222,16 +258,16 @@
 				<div class="col-lg-8">
 					<div class="card h-100 stat-card animate-in" style="--delay: 8">
 						<div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-							<h5 class="mb-0"><i class="bi bi-graph-up-arrow icon-green me-2"></i>Messages per day</h5>
+							<h5 class="mb-0"><i class="bi bi-graph-up-arrow icon-green me-2"></i><span data-i18n="chart.messagesPerDay">Messages per day</span></h5>
 							<div class="d-flex align-items-center gap-2">
-								<label for="message-range" class="form-label mb-0 small text-muted">Range</label>
+								<label for="message-range" class="form-label mb-0 small text-muted" data-i18n="chart.range">Range</label>
 								<select id="message-range" class="form-select form-select-sm w-auto">
-									<option value="7d">Last 7 days</option>
-									<option value="30d">Last 30 days</option>
-									<option value="3m">Last 3 months</option>
-									<option value="6m">Last 6 months</option>
-									<option value="1y">Last year</option>
-									<option value="all" selected>All time</option>
+									<option value="7d" data-i18n="chart.last7days">Last 7 days</option>
+									<option value="30d" data-i18n="chart.last30days">Last 30 days</option>
+									<option value="3m" data-i18n="chart.last3months">Last 3 months</option>
+									<option value="6m" data-i18n="chart.last6months">Last 6 months</option>
+									<option value="1y" data-i18n="chart.lastYear">Last year</option>
+									<option value="all" selected data-i18n="chart.allTime">All time</option>
 								</select>
 							</div>
 						</div>
@@ -243,7 +279,7 @@
 				<div class="col-lg-4">
 					<div class="card h-100 stat-card animate-in" style="--delay: 9">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-people-fill icon-purple me-2"></i>Participants</h5>
+							<h5 class="mb-0"><i class="bi bi-people-fill icon-purple me-2"></i><span data-i18n="chart.participants">Participants</span></h5>
 						</div>
 						<div class="card-body">
 							<canvas id="participantChart" height="220"></canvas>
@@ -256,7 +292,7 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 10">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-clock-fill icon-cyan me-2"></i>Activity by hour</h5>
+							<h5 class="mb-0"><i class="bi bi-clock-fill icon-cyan me-2"></i><span data-i18n="chart.activityByHour">Activity by hour</span></h5>
 						</div>
 						<div class="card-body">
 							<canvas id="hourActivityChart" height="220"></canvas>
@@ -266,7 +302,7 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 11">
 						<div class="card-header d-flex justify-content-between align-items-center">
-							<h5 class="mb-0"><i class="bi bi-chat-square-text-fill icon-orange me-2"></i>Most used words</h5>
+							<h5 class="mb-0"><i class="bi bi-chat-square-text-fill icon-orange me-2"></i><span data-i18n="chart.mostUsedWords">Most used words</span></h5>
 						</div>
 						<div class="card-body">
 							<canvas id="wordCloudChart" height="220"></canvas>
@@ -279,7 +315,7 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 3">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-emoji-smile-fill icon-yellow me-2"></i>Favorite emojis</h5>
+							<h5 class="mb-0"><i class="bi bi-emoji-smile-fill icon-yellow me-2"></i><span data-i18n="chart.favoriteEmojis">Favorite emojis</span></h5>
 						</div>
 						<div class="card-body">
 							<canvas id="mostUsedEmojisChart" height="220"></canvas>
@@ -289,10 +325,33 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 3">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-emoji-laughing-fill icon-pink me-2"></i>Emojis by user</h5>
+							<h5 class="mb-0"><i class="bi bi-emoji-laughing-fill icon-pink me-2"></i><span data-i18n="chart.emojisByUser">Emojis by user</span></h5>
 						</div>
 						<div class="card-body">
 							<canvas id="emojiUsageByUserChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div id="sentiment-charts" class="row g-4 mb-4" data-section-content="sentiment-charts">
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-heart-pulse-fill icon-green me-2"></i><span data-i18n="chart.sentimentByUser">Sentiment by user</span></h5>
+						</div>
+						<div class="card-body">
+							<canvas id="sentimentByUserChart" height="220"></canvas>
+						</div>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="card h-100 stat-card animate-in" style="--delay: 3">
+						<div class="card-header">
+							<h5 class="mb-0"><i class="bi bi-graph-up icon-cyan me-2"></i><span data-i18n="chart.sentimentTimeline">Sentiment timeline</span></h5>
+						</div>
+						<div class="card-body">
+							<canvas id="sentimentTimelineChart" height="220"></canvas>
 						</div>
 					</div>
 				</div>
@@ -302,7 +361,7 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 3">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-pie-chart-fill icon-green me-2"></i>Participation (message %)</h5>
+							<h5 class="mb-0"><i class="bi bi-pie-chart-fill icon-green me-2"></i><span data-i18n="chart.participation">Participation (message %)</span></h5>
 						</div>
 						<div class="card-body">
 							<canvas id="responseRateChart" height="220"></canvas>
@@ -312,7 +371,7 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 3">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-trophy-fill icon-yellow me-2"></i>Conversation starters</h5>
+							<h5 class="mb-0"><i class="bi bi-trophy-fill icon-yellow me-2"></i><span data-i18n="chart.conversationStarters">Conversation starters</span></h5>
 						</div>
 						<div class="card-body">
 							<div id="conversation-starters-podium" class="d-flex flex-column gap-3"></div>
@@ -325,7 +384,7 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 3">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-lightning-fill icon-cyan me-2"></i>Avg. response time</h5>
+							<h5 class="mb-0"><i class="bi bi-lightning-fill icon-cyan me-2"></i><span data-i18n="chart.avgResponseTime">Avg. response time</span></h5>
 						</div>
 						<div class="card-body">
 							<div id="response-time-chart-container">
@@ -337,7 +396,7 @@
 				<div class="col-lg-6">
 					<div class="card h-100 stat-card animate-in" style="--delay: 3">
 						<div class="card-header">
-							<h5 class="mb-0"><i class="bi bi-pencil-fill icon-orange me-2"></i>Avg. words per message</h5>
+							<h5 class="mb-0"><i class="bi bi-pencil-fill icon-orange me-2"></i><span data-i18n="chart.avgWordsPerMessage">Avg. words per message</span></h5>
 						</div>
 						<div class="card-body">
 							<canvas id="wordsPerMessageChart" height="220"></canvas>
@@ -351,10 +410,10 @@
 					<div class="card download-section animate-in" style="--delay: 3">
 						<div class="card-body d-flex justify-content-center gap-3 flex-wrap py-4">
 							<button class="btn btn-outline-primary" id="download-json-btn">
-								<i class="bi bi-filetype-json me-1"></i> Download JSON
+								<i class="bi bi-filetype-json me-1"></i><span data-i18n="download.json">Download JSON</span>
 							</button>
 							<button class="btn btn-outline-primary" id="download-png-btn">
-								<i class="bi bi-image me-1"></i> Download PNG
+								<i class="bi bi-image me-1"></i><span data-i18n="download.png">Download PNG</span>
 							</button>
 						</div>
 					</div>
@@ -362,7 +421,7 @@
 			</div>
 
 			<div class="footer-note">
-				<i class="bi bi-shield-lock-fill me-1"></i> Your data never leaves your browser. 100% private and secure.
+				<i class="bi bi-shield-lock-fill me-1"></i><span data-i18n="footer.privacy">Your data never leaves your browser. 100% private and secure.</span>
 			</div>
 		</div>
 
@@ -372,19 +431,19 @@
 					<form action="{{ url_for('dashboard') }}" method="POST" enctype="multipart/form-data">
 						<input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 						<div class="modal-header">
-							<h5 class="modal-title" id="uploadModalLabel">Upload WhatsApp chat</h5>
+							<h5 class="modal-title" id="uploadModalLabel" data-i18n="modal.title">Upload WhatsApp chat</h5>
 							<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 						</div>
 						<div class="modal-body">
-							<p class="mb-2">Export your chat without media and upload the .txt file.</p>
+							<p class="mb-2" data-i18n="modal.description">Export your chat without media and upload the .txt file.</p>
 							<div class="mb-3">
-								<label for="chatFile" class="form-label">.txt file</label>
+								<label for="chatFile" class="form-label" data-i18n="modal.fileLabel">.txt file</label>
 								<input class="form-control" type="file" id="chatFile" name="chatFile" accept=".txt" required />
 							</div>
 						</div>
 						<div class="modal-footer">
-							<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-							<button type="submit" class="btn btn-primary">Analyze</button>
+							<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="modal.cancel">Cancel</button>
+							<button type="submit" class="btn btn-primary" data-i18n="modal.analyze">Analyze</button>
 						</div>
 					</form>
 				</div>
@@ -396,6 +455,7 @@
 		<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 		<script src="https://cdn.jsdelivr.net/npm/chartjs-chart-wordcloud@4"></script>
 		<script id="chat-data" type="application/json">{{ stats_json | safe }}</script>
+		<script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
 		<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 		<script>
 			// Progress Navigation Bar functionality

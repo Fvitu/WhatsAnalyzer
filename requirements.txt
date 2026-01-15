@@ -34,6 +34,16 @@ python-magic-bin>=0.4.14; sys_platform == 'win32'
 emoji>=2.8.0
 pytz>=2023.3
 
+# ============================================
+# NLP / Semantic Analysis (OPCIONAL)
+# ============================================
+
+# spaCy for robust tokenization + lemmatization (models installed separately)
+spacy>=3.7.0
+
+# Lightweight sentiment analyzer (no NLTK downloads required)
+vaderSentiment>=3.3.2
+
 # Testing (OPCIONAL - para desarrollo)
 pytest>=7.4.0
 pytest-cov>=4.1.0
@@ -47,3 +57,9 @@ flake8>=6.0.0
 # INSTALACIÓN MÍNIMA
 # ============================================
 # pip install flask flask_wtf werkzeug python-dotenv
+
+# ============================================
+# NLP SETUP (optional but recommended)
+# ============================================
+# python -m spacy download en_core_web_sm
+# python -m spacy download es_core_news_sm

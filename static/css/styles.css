@@ -761,3 +761,37 @@ canvas {
         padding-left: 80px;
     }
 }
+
+/* Language selector */
+#languageSelect {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#languageSelect:hover {
+    border-color: var(--wa-green);
+}
+
+#languageSelect:focus {
+    border-color: var(--wa-green);
+    box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.2);
+    outline: none;
+}
+
+[data-bs-theme="light"] #languageSelect {
+    background-color: var(--bg-secondary);
+}
+
+/* Language selector options */
+#languageSelect option {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    padding: 0.5rem;
+}

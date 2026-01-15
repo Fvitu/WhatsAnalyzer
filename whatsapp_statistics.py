@@ -3,23 +3,703 @@ import json
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 
+from functools import lru_cache
+
+try:
+    import spacy  # type: ignore
+except Exception:  # pragma: no cover
+    spacy = None
+
+try:
+    from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer  # type: ignore
+except Exception:  # pragma: no cover
+    SentimentIntensityAnalyzer = None
+
 # --- Expresiones Regulares ---
 # Se admite una coma opcional y año de 2 o 4 dígitos.
 message_pattern = re.compile(r"^(\d{1,2}/\d{1,2}/\d{2,4}),?\s+(\d{1,2}:\d{2}) - (.*)$")
 
-# Para detectar emojis individualmente (sin agrupar secuencias)
+# Para detectar emojis individualmente (rangos Unicode ampliados)
 emoji_pattern = re.compile(
     "["
-    "\U0001f600-\U0001f64f"  # Emoticons
-    "\U0001f300-\U0001f5ff"  # Símbolos y pictogramas
-    "\U0001f680-\U0001f6ff"  # Transporte y símbolos
-    "\U0001f1e0-\U0001f1ff"  # Banderas
+    "\U0001f600-\U0001f64f"  # Emoticons (caras)
+    "\U0001f300-\U0001f5ff"  # Símbolos y pictogramas misceláneos
+    "\U0001f680-\U0001f6ff"  # Transporte y símbolos de mapas
+    "\U0001f700-\U0001f77f"  # Símbolos alquímicos
+    "\U0001f780-\U0001f7ff"  # Formas geométricas extendidas
+    "\U0001f800-\U0001f8ff"  # Flechas suplementarias-C
+    "\U0001f900-\U0001f9ff"  # Símbolos y pictogramas suplementarios (emojis nuevos)
+    "\U0001fa00-\U0001fa6f"  # Símbolos de ajedrez
+    "\U0001fa70-\U0001faff"  # Símbolos y pictogramas extendidos-A (emojis 2020+)
+    "\U0001fb00-\U0001fbff"  # Símbolos para terminales legacy
+    "\U0001f1e0-\U0001f1ff"  # Indicadores de región (banderas)
+    "\U00002702-\U000027b0"  # Dingbats
+    "\U000024c2-\U0001f251"  # Símbolos encerrados
+    "\U0001f004"  # Mahjong tile
+    "\U0001f0cf"  # Carta de joker
+    "\U00002600-\U000026ff"  # Símbolos misceláneos (sol, luna, etc.)
+    "\U00002700-\U000027bf"  # Dingbats
+    "\U0000fe00-\U0000fe0f"  # Selectores de variación
+    "\U0001f100-\U0001f1ff"  # Suplemento alfanumérico encerrado
     "]",
     flags=re.UNICODE,
 )
 
 # Patrón para identificar links
 link_pattern = re.compile(r"https?://\S+")
+
+_basic_word_pattern = re.compile(r"\b\w+\b", flags=re.UNICODE)
+
+
+def _basic_stopwords_en():
+    return {
+        # Articles & Determiners
+        "the",
+        "a",
+        "an",
+        "this",
+        "that",
+        "these",
+        "those",
+        # Pronouns
+        "i",
+        "you",
+        "he",
+        "she",
+        "it",
+        "we",
+        "they",
+        "me",
+        "him",
+        "her",
+        "us",
+        "them",
+        "my",
+        "your",
+        "his",
+        "her",
+        "its",
+        "our",
+        "their",
+        "mine",
+        "yours",
+        "hers",
+        "ours",
+        "theirs",
+        "myself",
+        "yourself",
+        "himself",
+        "herself",
+        "itself",
+        "ourselves",
+        "themselves",
+        # Prepositions
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "with",
+        "by",
+        "from",
+        "of",
+        "about",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "under",
+        "over",
+        "out",
+        "up",
+        "down",
+        "off",
+        # Conjunctions
+        "and",
+        "or",
+        "but",
+        "nor",
+        "so",
+        "yet",
+        "both",
+        "either",
+        "neither",
+        "because",
+        "although",
+        "while",
+        "if",
+        "unless",
+        "until",
+        "when",
+        "where",
+        # Verbs (common/auxiliary)
+        "is",
+        "am",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "having",
+        "do",
+        "does",
+        "did",
+        "doing",
+        "done",
+        "will",
+        "would",
+        "shall",
+        "should",
+        "may",
+        "might",
+        "must",
+        "can",
+        "could",
+        "get",
+        "got",
+        "getting",
+        "goes",
+        "going",
+        "went",
+        "gone",
+        # Common adverbs
+        "very",
+        "really",
+        "just",
+        "also",
+        "too",
+        "only",
+        "even",
+        "still",
+        "now",
+        "then",
+        "here",
+        "there",
+        "always",
+        "never",
+        "ever",
+        "already",
+        "again",
+        "often",
+        "sometimes",
+        "usually",
+        # Question words
+        "what",
+        "which",
+        "who",
+        "whom",
+        "whose",
+        "why",
+        "how",
+        # Common chat words
+        "yes",
+        "no",
+        "not",
+        "ok",
+        "okay",
+        "yeah",
+        "yea",
+        "yep",
+        "nope",
+        "like",
+        "well",
+        "oh",
+        "ah",
+        "um",
+        "uh",
+        "hm",
+        "hmm",
+        "lol",
+        "haha",
+        "hahaha",
+        "lmao",
+        "omg",
+        # Other common words
+        "as",
+        "than",
+        "such",
+        "more",
+        "most",
+        "some",
+        "any",
+        "all",
+        "each",
+        "other",
+        "another",
+        "same",
+        "different",
+        "own",
+        "one",
+        "two",
+        "first",
+        "last",
+        "next",
+        "new",
+        "old",
+        "good",
+        "bad",
+        "thing",
+        "things",
+        "something",
+        "anything",
+        "nothing",
+        "everything",
+        "someone",
+        "anyone",
+        "everyone",
+        "nobody",
+        "time",
+        "day",
+        "way",
+        "lot",
+        "much",
+        "many",
+        "few",
+        "little",
+        "bit",
+        "want",
+        "need",
+        "know",
+        "think",
+        "see",
+        "look",
+        "come",
+        "make",
+        "take",
+        "give",
+        "tell",
+        "say",
+        "said",
+        "let",
+        "put",
+        "try",
+        "keep",
+    }
+
+
+def _basic_stopwords_es():
+    return {
+        # Artículos
+        "el",
+        "la",
+        "los",
+        "las",
+        "un",
+        "una",
+        "unos",
+        "unas",
+        "lo",
+        # Contracciones
+        "al",
+        "del",
+        # Pronombres personales
+        "yo",
+        "tú",
+        "tu",
+        "él",
+        "ella",
+        "ello",
+        "nosotros",
+        "nosotras",
+        "vosotros",
+        "vosotras",
+        "ustedes",
+        "ellos",
+        "ellas",
+        "me",
+        "te",
+        "se",
+        "nos",
+        "os",
+        "le",
+        "les",
+        "lo",
+        "la",
+        "los",
+        "las",
+        # Posesivos
+        "mi",
+        "mis",
+        "tu",
+        "tus",
+        "su",
+        "sus",
+        "nuestro",
+        "nuestra",
+        "nuestros",
+        "nuestras",
+        "vuestro",
+        "vuestra",
+        "vuestros",
+        "vuestras",
+        "mío",
+        "mía",
+        "míos",
+        "mías",
+        "tuyo",
+        "tuya",
+        "tuyos",
+        "tuyas",
+        "suyo",
+        "suya",
+        "suyos",
+        "suyas",
+        # Demostrativos
+        "este",
+        "esta",
+        "estos",
+        "estas",
+        "esto",
+        "ese",
+        "esa",
+        "esos",
+        "esas",
+        "eso",
+        "aquel",
+        "aquella",
+        "aquellos",
+        "aquellas",
+        "aquello",
+        # Preposiciones
+        "a",
+        "ante",
+        "bajo",
+        "con",
+        "contra",
+        "de",
+        "desde",
+        "durante",
+        "en",
+        "entre",
+        "hacia",
+        "hasta",
+        "mediante",
+        "para",
+        "por",
+        "según",
+        "sin",
+        "sobre",
+        "tras",
+        # Conjunciones
+        "y",
+        "e",
+        "o",
+        "u",
+        "ni",
+        "que",
+        "pero",
+        "sino",
+        "aunque",
+        "porque",
+        "pues",
+        "como",
+        "si",
+        "cuando",
+        "donde",
+        "mientras",
+        "aunque",
+        # Verbos auxiliares y comunes
+        "ser",
+        "soy",
+        "eres",
+        "es",
+        "somos",
+        "sois",
+        "son",
+        "era",
+        "eras",
+        "éramos",
+        "eran",
+        "fue",
+        "fueron",
+        "sido",
+        "siendo",
+        "estar",
+        "estoy",
+        "estás",
+        "está",
+        "estamos",
+        "estáis",
+        "están",
+        "estaba",
+        "estuve",
+        "estuvo",
+        "estado",
+        "estando",
+        "haber",
+        "he",
+        "has",
+        "ha",
+        "hay",
+        "hemos",
+        "habéis",
+        "han",
+        "había",
+        "hubo",
+        "habido",
+        "habiendo",
+        "tener",
+        "tengo",
+        "tienes",
+        "tiene",
+        "tenemos",
+        "tienen",
+        "tenía",
+        "tuvo",
+        "tenido",
+        "teniendo",
+        "poder",
+        "puedo",
+        "puedes",
+        "puede",
+        "podemos",
+        "pueden",
+        "podía",
+        "pudo",
+        "podido",
+        "pudiendo",
+        "hacer",
+        "hago",
+        "haces",
+        "hace",
+        "hacemos",
+        "hacen",
+        "hacía",
+        "hizo",
+        "hecho",
+        "haciendo",
+        "ir",
+        "voy",
+        "vas",
+        "va",
+        "vamos",
+        "van",
+        "iba",
+        "fue",
+        "ido",
+        "yendo",
+        "decir",
+        "digo",
+        "dices",
+        "dice",
+        "decimos",
+        "dicen",
+        "dijo",
+        "dicho",
+        "ver",
+        "veo",
+        "ves",
+        "ve",
+        "vemos",
+        "ven",
+        "vio",
+        "visto",
+        "dar",
+        "doy",
+        "das",
+        "da",
+        "damos",
+        "dan",
+        "dio",
+        "dado",
+        "saber",
+        "sé",
+        "sabes",
+        "sabe",
+        "sabemos",
+        "saben",
+        "supo",
+        "sabido",
+        "querer",
+        "quiero",
+        "quieres",
+        "quiere",
+        "queremos",
+        "quieren",
+        "quiso",
+        # Adverbios comunes
+        "más",
+        "menos",
+        "muy",
+        "mucho",
+        "mucha",
+        "muchos",
+        "muchas",
+        "poco",
+        "poca",
+        "pocos",
+        "pocas",
+        "tan",
+        "tanto",
+        "tanta",
+        "tantos",
+        "tantas",
+        "bien",
+        "mal",
+        "mejor",
+        "peor",
+        "siempre",
+        "nunca",
+        "jamás",
+        "ya",
+        "aún",
+        "todavía",
+        "ahora",
+        "antes",
+        "después",
+        "luego",
+        "aquí",
+        "ahí",
+        "allí",
+        "acá",
+        "allá",
+        "cerca",
+        "lejos",
+        "también",
+        "tampoco",
+        "solo",
+        "sólo",
+        "además",
+        # Interrogativos
+        "qué",
+        "quién",
+        "quiénes",
+        "cuál",
+        "cuáles",
+        "cuánto",
+        "cuánta",
+        "cuántos",
+        "cuántas",
+        "cómo",
+        "dónde",
+        "cuándo",
+        "por qué",
+        # Indefinidos
+        "algo",
+        "alguien",
+        "alguno",
+        "alguna",
+        "algunos",
+        "algunas",
+        "nada",
+        "nadie",
+        "ninguno",
+        "ninguna",
+        "todo",
+        "toda",
+        "todos",
+        "todas",
+        "cada",
+        "otro",
+        "otra",
+        "otros",
+        "otras",
+        "mismo",
+        "misma",
+        "mismos",
+        "mismas",
+        "uno",
+        "dos",
+        "tres",
+        "vez",
+        "veces",
+        "día",
+        "días",
+        # Palabras de chat comunes
+        "sí",
+        "no",
+        "ok",
+        "bueno",
+        "buena",
+        "pues",
+        "vale",
+        "oye",
+        "mira",
+        "jaja",
+        "jajaja",
+        "jajajaja",
+        "jejeje",
+        "xd",
+        "xdd",
+        "ay",
+        "uy",
+        "ah",
+        "oh",
+        "eh",
+        "hola",
+        "chao",
+        "adiós",
+        # Otras palabras muy comunes
+        "cosa",
+        "cosas",
+        "vez",
+        "veces",
+        "forma",
+        "manera",
+        "parte",
+        "tiempo",
+        "año",
+        "años",
+        "vida",
+    }
+
+
+@lru_cache(maxsize=8)
+def _get_spacy_nlp(lang: str):
+    """Lazy-load spaCy pipelines. Returns None if spaCy (or model) isn't available."""
+    if spacy is None:
+        return None
+
+    model = "en_core_web_sm" if lang == "en" else "es_core_news_sm"
+    try:
+        # Disable components not needed for lemmatization to keep it fast.
+        return spacy.load(model, disable=["ner", "parser"])
+    except Exception:
+        return None
+
+
+@lru_cache(maxsize=2)
+def _get_vader():
+    if SentimentIntensityAnalyzer is None:
+        return None
+    try:
+        return SentimentIntensityAnalyzer()
+    except Exception:
+        return None
+
+
+def _detect_lang_fast(text: str, stop_en: set, stop_es: set) -> str:
+    """Heuristic language detector: compares stopword hits for EN vs ES."""
+    # Limit token scan for performance on long messages.
+    tokens = _basic_word_pattern.findall(text.lower())[:60]
+    if not tokens:
+        return "en"
+    en_hits = sum(1 for t in tokens if t in stop_en)
+    es_hits = sum(1 for t in tokens if t in stop_es)
+    return "es" if es_hits > en_hits else "en"
+
+
+def _normalize_text_for_nlp(text: str) -> str:
+    text = text.replace("<Media omitted>", " ")
+    text = link_pattern.sub(" ", text)
+    return text
+
+
+def _sentiment_label(compound: float) -> str:
+    if compound >= 0.05:
+        return "positive"
+    if compound <= -0.05:
+        return "negative"
+    return "neutral"
+
 
 # --- Funciones Auxiliares ---
 
@@ -51,16 +731,78 @@ def should_ignore_message(sender, message):
     Se ignoran:
       - Mensajes cuyo texto sea "null".
       - Mensajes con avisos típicos de sistema (cifrado, creación de grupo, etc.).
+    Soporta patrones en inglés y español.
     """
     texto = message.strip().lower()
     ignore_patterns = [
+        # Genéricos
         "null",
+        # Inglés - Cifrado y privacidad
         "end-to-end encrypted",
         "messages and calls are end-to-end encrypted",
         "only people in this chat can read",
         "learn more",
+        "your security code with",
+        "security code changed",
+        "tap to learn more",
+        # Inglés - Acciones de grupo
+        "created group",
+        "added you",
+        "added to this group",
+        "removed from this group",
+        "left the group",
+        "changed the subject",
+        "changed this group's icon",
+        "changed the group description",
+        "you're now an admin",
+        "is no longer an admin",
+        "changed their phone number",
+        "deleted this message",
+        "this message was deleted",
+        "you deleted this message",
+        "waiting for this message",
+        "missed voice call",
+        "missed video call",
+        # Español - Cifrado y privacidad
+        "cifrado de extremo a extremo",
+        "los mensajes y las llamadas están cifrados",
+        "solo las personas de este chat pueden leer",
+        "más información",
+        "tu código de seguridad con",
+        "el código de seguridad cambió",
+        "toca para más información",
+        # Español - Acciones de grupo
         "creó el grupo",
+        "creó este grupo",
+        "te añadió",
+        "te agregó",
         "añadió",
+        "agregó",
+        "se unió con el enlace",
+        "salió del grupo",
+        "abandonó el grupo",
+        "eliminó a",
+        "expulsó a",
+        "ahora eres administrador",
+        "ya no es administrador",
+        "cambió el asunto",
+        "cambió el icono del grupo",
+        "cambió la descripción del grupo",
+        "cambió su número de teléfono",
+        "eliminó este mensaje",
+        "eliminaste este mensaje",
+        "se eliminó este mensaje",
+        "esperando este mensaje",
+        "llamada de voz perdida",
+        "videollamada perdida",
+        # Mensajes de ubicación
+        "location:",
+        "ubicación:",
+        "live location",
+        "ubicación en tiempo real",
+        # Contactos compartidos
+        "contact card omitted",
+        "tarjeta de contacto omitida",
     ]
     for pat in ignore_patterns:
         if pat in texto:
@@ -160,7 +902,8 @@ def analyze_messages(messages):
     multimedia_count = 0
     total_emojis = 0
     total_links = 0
-    palabras_counter = Counter()
+    palabras_counter_raw = Counter()
+    palabras_counter_nlp = Counter()
     emojis_counter = Counter()
     mensajes_por_dia = defaultdict(int)
     mensajes_por_hora = defaultdict(int)  # Contaremos por hora (0-23)
@@ -187,6 +930,41 @@ def analyze_messages(messages):
         5: "Sábado",
         6: "Domingo",
     }
+
+    # --- NLP/Sentiment setup (done once; used during the main loop) ---
+    stop_en = set(_basic_stopwords_en())
+    stop_es = set(_basic_stopwords_es())
+
+    if spacy is not None:
+        try:
+            from spacy.lang.en.stop_words import STOP_WORDS as SPACY_STOP_EN  # type: ignore
+
+            stop_en |= set(SPACY_STOP_EN)
+        except Exception:
+            pass
+        try:
+            from spacy.lang.es.stop_words import STOP_WORDS as SPACY_STOP_ES  # type: ignore
+
+            stop_es |= set(SPACY_STOP_ES)
+        except Exception:
+            pass
+
+    nlp_en = _get_spacy_nlp("en")
+    nlp_es = _get_spacy_nlp("es")
+    use_spacy = (nlp_en is not None) or (nlp_es is not None)
+    grouped_texts = {"en": [], "es": []} if use_spacy else None
+
+    vader = _get_vader()
+    sent_sum_by_persona = defaultdict(float)
+    sent_count_by_persona = defaultdict(int)
+    sent_counts_by_persona = defaultdict(
+        lambda: {"positive": 0, "neutral": 0, "negative": 0}
+    )
+    sent_sum_by_day = defaultdict(float)
+    sent_count_by_day = defaultdict(int)
+    sent_global_counts = {"positive": 0, "neutral": 0, "negative": 0}
+    sent_global_sum = 0.0
+    sent_global_n = 0
 
     # Estadísticas básicas
     for msg in messages:
@@ -221,14 +999,131 @@ def analyze_messages(messages):
         palabras = re.findall(r"\b\w+\b", texto.lower())
         palabras_en_msg = len(palabras)
         total_palabras += palabras_en_msg
-        palabras_counter.update(palabras)
+        palabras_counter_raw.update(palabras)
 
         # Contar palabras por persona
         if msg["sender"] is not None:
             palabras_por_persona[msg["sender"]] += palabras_en_msg
             mensajes_count_persona[msg["sender"]] += 1
 
+        # NLP/sentiment text (normalized once)
+        normalized = _normalize_text_for_nlp(msg["message"])
+        lang = _detect_lang_fast(normalized, stop_en, stop_es)
+
+        # Lemma/stopword word frequencies
+        if grouped_texts is not None:
+            grouped_texts[lang].append(normalized)
+        else:
+            # Fallback mode (no spaCy models): tokenize + stopwords inline
+            primary = stop_en if lang == "en" else stop_es
+            secondary = stop_es if lang == "en" else stop_en
+            for w in _basic_word_pattern.findall(normalized.lower()):
+                if len(w) < 2:
+                    continue
+                if w.isdigit():
+                    continue
+                if w in primary or w in secondary:
+                    continue
+                palabras_counter_nlp[w] += 1
+
+        # Sentiment (VADER) in-stream
+        sender = msg.get("sender")
+        if vader is not None and sender:
+            text = normalized.strip()
+            if text:
+                compound = float(vader.polarity_scores(text).get("compound", 0.0))
+                label = _sentiment_label(compound)
+
+                sent_sum_by_persona[sender] += compound
+                sent_count_by_persona[sender] += 1
+                sent_counts_by_persona[sender][label] += 1
+
+                day = dt.date().isoformat()
+                sent_sum_by_day[day] += compound
+                sent_count_by_day[day] += 1
+
+                sent_global_sum += compound
+                sent_global_n += 1
+                sent_global_counts[label] += 1
+
     palabras_promedio = total_palabras / total_messages if total_messages > 0 else 0
+
+    # --- NLP: stopwords + lemmatization (spaCy if available) ---
+    def _consume_spacy_texts(nlp, texts, stop_primary: set, stop_secondary: set):
+        if not texts:
+            return
+        if nlp is None:
+            # If one language model isn't available, fallback to basic tokenization.
+            for t in texts:
+                for w in _basic_word_pattern.findall((t or "").lower()):
+                    if len(w) < 2:
+                        continue
+                    if w.isdigit():
+                        continue
+                    if w in stop_primary or w in stop_secondary:
+                        continue
+                    palabras_counter_nlp[w] += 1
+            return
+
+        for doc in nlp.pipe(texts, batch_size=256):
+            for tok in doc:
+                if tok.is_space or tok.is_punct:
+                    continue
+                if not tok.is_alpha:
+                    continue
+                lemma = (tok.lemma_ or tok.text).lower().strip()
+                if not lemma or lemma == "-pron-":
+                    lemma = tok.text.lower().strip()
+                if len(lemma) < 2:
+                    continue
+                if lemma in stop_primary or lemma in stop_secondary:
+                    continue
+                palabras_counter_nlp[lemma] += 1
+
+    if grouped_texts is not None:
+        # Use both stopword sets regardless of detected language for bilingual chats.
+        _consume_spacy_texts(nlp_en, grouped_texts.get("en", []), stop_en, stop_es)
+        _consume_spacy_texts(nlp_es, grouped_texts.get("es", []), stop_es, stop_en)
+
+    sentimiento_por_persona = {}
+    for persona in participantes:
+        n = sent_count_by_persona.get(persona, 0)
+        avg = (sent_sum_by_persona.get(persona, 0.0) / n) if n else 0.0
+        counts = sent_counts_by_persona.get(
+            persona, {"positive": 0, "neutral": 0, "negative": 0}
+        )
+        sentimiento_por_persona[persona] = {
+            "promedio_compound": round(avg, 4),
+            "positive": int(counts.get("positive", 0)),
+            "neutral": int(counts.get("neutral", 0)),
+            "negative": int(counts.get("negative", 0)),
+            "total": int(n),
+        }
+
+    sentimiento_por_dia = {}
+    for day, n in sent_count_by_day.items():
+        if n:
+            sentimiento_por_dia[day] = round(sent_sum_by_day[day] / n, 4)
+
+    sentimiento_global = {
+        "promedio_compound": (
+            round((sent_global_sum / sent_global_n), 4) if sent_global_n else 0.0
+        ),
+        "positive": int(sent_global_counts["positive"]),
+        "neutral": int(sent_global_counts["neutral"]),
+        "negative": int(sent_global_counts["negative"]),
+        "total": int(sent_global_n),
+        "engine": "vader" if vader is not None else "disabled",
+        "coverage": {
+            "scored_messages": int(sent_global_n),
+            "total_messages": int(total_messages),
+            "scored_pct": (
+                round((sent_global_n / total_messages) * 100, 1)
+                if total_messages
+                else 0.0
+            ),
+        },
+    }
 
     # Aseguramos keys de "00" a "23" para mensajes por hora
     mensajes_por_hora_formateado = {
@@ -442,9 +1337,21 @@ def analyze_messages(messages):
         # Texto y Multimedia
         "palabras_promedio_por_mensaje": palabras_promedio,
         "palabras_promedio_por_persona": palabras_promedio_por_persona,
-        "palabras_mas_utilizadas": palabras_counter.most_common(10),
+        # Keep both raw and NLP-cleaned variants. Frontend can prefer NLP.
+        "palabras_mas_utilizadas_raw": palabras_counter_raw.most_common(10),
+        "palabras_mas_utilizadas_nlp": palabras_counter_nlp.most_common(50),
+        # Backward-compatible key (now returns NLP-cleaned words)
+        "palabras_mas_utilizadas": (
+            palabras_counter_nlp.most_common(10)
+            if palabras_counter_nlp
+            else palabras_counter_raw.most_common(10)
+        ),
         "total_multimedia": multimedia_count,
         "total_links": total_links,
+        # Sentiment
+        "sentimiento_por_persona": sentimiento_por_persona,
+        "sentimiento_por_dia": sentimiento_por_dia,
+        "sentimiento_global": sentimiento_global,
         # Emojis
         "total_emojis": total_emojis,
         "emojis_mas_utilizados": emojis_counter.most_common(10),
@@ -464,6 +1371,19 @@ def analyze_messages(messages):
         "horas_totales_chat": round(total_horas_chat, 1),
         "lapso_tiempo": lapso_tiempo,
         "racha_conversacional": racha_conversacional,
+        # NLP/Analysis metadata - informa qué funcionalidades están activas
+        "nlp_info": {
+            "spacy_available": spacy is not None,
+            "spacy_en_model": nlp_en is not None,
+            "spacy_es_model": nlp_es is not None,
+            "lemmatization_active": use_spacy,
+            "stopwords_en_count": len(stop_en),
+            "stopwords_es_count": len(stop_es),
+            "sentiment_engine": "vader" if vader is not None else "disabled",
+            "sentiment_available": vader is not None,
+            "words_processed_nlp": sum(palabras_counter_nlp.values()),
+            "words_processed_raw": sum(palabras_counter_raw.values()),
+        },
     }
 
     return stats_final

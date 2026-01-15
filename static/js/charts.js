@@ -2,6 +2,9 @@
 	// Modern green-themed palette matching WhatsApp style
 	const palette = ["#25D366", "#a78bfa", "#22d3ee", "#fbbf24", "#fb923c", "#f472b6", "#34d399", "#818cf8"];
 
+	// i18n helper - returns translation or key if not found
+	const t = (key) => window.i18n?.t(key) || key;
+
 	const demoData = {
 		total_mensajes: 420,
 		participantes: ["Alex", "Sam", "Taylor"],
@@ -50,18 +53,48 @@
 			22: 12,
 			23: 8,
 		},
-		palabras_mas_utilizadas: [
-			["meeting", 22],
-			["ok", 18],
-			["thanks", 16],
-			["lol", 15],
+		palabras_mas_utilizadas_nlp: [
+			["meet", 22],
+			["thank", 16],
 			["great", 14],
 			["call", 13],
 			["tomorrow", 12],
-			["yes", 11],
 			["sure", 10],
 			["today", 9],
+			["share", 8],
+			["plan", 7],
+			["time", 6],
 		],
+		palabras_mas_utilizadas: [
+			["meet", 22],
+			["thank", 16],
+			["great", 14],
+			["call", 13],
+			["tomorrow", 12],
+			["sure", 10],
+			["today", 9],
+			["share", 8],
+			["plan", 7],
+			["time", 6],
+		],
+		sentimiento_por_persona: {
+			Alex: { promedio_compound: 0.21, positive: 80, neutral: 70, negative: 30, total: 180 },
+			Sam: { promedio_compound: 0.05, positive: 55, neutral: 70, negative: 25, total: 150 },
+			Taylor: { promedio_compound: -0.08, positive: 25, neutral: 45, negative: 20, total: 90 },
+		},
+		sentimiento_por_dia: {
+			"2024-01-01": 0.02,
+			"2024-01-02": 0.05,
+			"2024-01-03": -0.01,
+			"2024-01-04": 0.12,
+			"2024-01-05": 0.08,
+			"2024-02-01": 0.04,
+			"2024-02-10": -0.06,
+			"2024-02-15": 0.1,
+			"2024-02-20": 0.0,
+			"2024-02-28": 0.14,
+		},
+		sentimiento_global: { promedio_compound: 0.07, positive: 160, neutral: 185, negative: 75, total: 420, engine: "vader" },
 		emojis_mas_utilizados: [
 			["😂", 30],
 			["👍", 22],
@@ -110,6 +143,22 @@
 		if (!canvas || !canvas.getContext) return;
 		if (charts[id]) charts[id].destroy();
 		charts[id] = new Chart(canvas.getContext("2d"), config);
+	};
+
+	const clearChart = (id) => {
+		if (charts[id]) {
+			charts[id].destroy();
+			delete charts[id];
+		}
+	};
+
+	const setCanvasHeight = (id, numBars) => {
+		const canvas = document.getElementById(id);
+		if (!canvas) return;
+		// Dynamic height: 40px per bar (min 180px, max 600px)
+		const height = Math.max(180, Math.min(600, numBars * 40));
+		canvas.height = height;
+		canvas.style.height = `${height}px`;
 	};
 
 	const sumTupleList = (items = []) => items.reduce((acc, item) => acc + (Number(item?.[1]) || 0), 0);
@@ -179,7 +228,8 @@
 
 		const totalDias = Number(lapso.total_dias);
 		if (totalDias > 0) {
-			setText("total-dias-value", `${totalDias} ${totalDias === 1 ? "day" : "days"}`);
+			const dayWord = totalDias === 1 ? t("stats.day") : t("stats.days");
+			setText("total-dias-value", `${totalDias} ${dayWord}`);
 		} else {
 			setText("total-dias-value", "");
 		}
@@ -189,7 +239,7 @@
 		setText("active-days-value", formatNumber(diasActivos));
 		if (totalDias > 0 && diasActivos > 0) {
 			const pct = ((diasActivos / totalDias) * 100).toFixed(0);
-			setText("active-days-detail", `${pct}% of total days`);
+			setText("active-days-detail", `${pct}% ${t("stats.ofTotalDays")}`);
 		}
 
 		setText("avg-messages-value", formatNumber(Number(stats.mensajes_promedio_por_dia), 1));
@@ -227,7 +277,7 @@
 						labels,
 						datasets: [
 							{
-								label: "Messages",
+								label: t("chart.messages"),
 								data,
 								backgroundColor: palette[0],
 								borderRadius: 4,
@@ -243,7 +293,7 @@
 							...(labels.length === 0 && {
 								title: {
 									display: true,
-									text: "No messages in this period",
+									text: t("chart.noMessages"),
 									font: { size: 14 },
 								},
 							}),
@@ -292,7 +342,7 @@
 					labels: hourLabels,
 					datasets: [
 						{
-							label: "Messages",
+							label: t("chart.messages"),
 							data: hourData,
 							backgroundColor: palette[3],
 							borderRadius: 3,
@@ -303,7 +353,8 @@
 			})
 		);
 
-		const palabras = normalizeTuples(stats.palabras_mas_utilizadas || [], 12);
+		const palabrasSource = stats.palabras_mas_utilizadas_nlp || stats.palabras_mas_utilizadas || [];
+		const palabras = normalizeTuples(palabrasSource, 20);
 
 		// Use bar chart for words - more reliable and no warnings
 		if (palabras.length) {
@@ -315,7 +366,7 @@
 						labels: items.map((i) => i.word),
 						datasets: [
 							{
-								label: "Frequency",
+								label: t("chart.frequency"),
 								data: items.map((i) => i.weight),
 								backgroundColor: palette[0],
 								borderRadius: 4,
@@ -329,6 +380,148 @@
 						plugins: { legend: { display: false } },
 						scales: {
 							x: { beginAtZero: true, ticks: { precision: 0 } },
+						},
+					},
+				})
+			);
+		} else {
+			clearChart("wordCloudChart");
+		}
+
+		// --- Sentiment charts ---
+		const sentGlobal = stats.sentimiento_global || {};
+		const sentimentEnabled = sentGlobal.engine && sentGlobal.engine !== "disabled";
+		const sentimentHint = sentimentEnabled ? t("chart.noData") : t("chart.unavailable");
+
+		const sentByUser = stats.sentimiento_por_persona || {};
+		let sentUsers = Object.keys(sentByUser);
+		if (sentUsers.length) {
+			// Sort users by sentiment: most positive → most negative
+			sentUsers = sentUsers.sort((a, b) => {
+				const valA = Number(sentByUser[a]?.promedio_compound) || 0;
+				const valB = Number(sentByUser[b]?.promedio_compound) || 0;
+				return valB - valA;
+			});
+			const sentVals = sentUsers.map((u) => Number(sentByUser[u]?.promedio_compound) || 0);
+			const sentColors = sentVals.map((v) => (v >= 0.05 ? palette[0] : v <= -0.05 ? "#ef4444" : "#94a3b8"));
+			setCanvasHeight("sentimentByUserChart", sentUsers.length);
+			safeRender(() =>
+				buildChart("sentimentByUserChart", {
+					type: "bar",
+					data: {
+						labels: sentUsers,
+						datasets: [
+							{
+								label: t("chart.sentiment"),
+								data: sentVals,
+								backgroundColor: sentColors,
+								borderRadius: 4,
+							},
+						],
+					},
+					options: {
+						indexAxis: "y",
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: {
+							legend: { display: false },
+							tooltip: {
+								callbacks: {
+									label: (ctx) => {
+										const user = sentUsers[ctx.dataIndex];
+										const info = sentByUser[user];
+										if (!info) return "";
+										const total = info.total || 1;
+										const posPct = ((info.positive / total) * 100).toFixed(0);
+										const neuPct = ((info.neutral / total) * 100).toFixed(0);
+										const negPct = ((info.negative / total) * 100).toFixed(0);
+										return [
+											`Avg: ${Number(info.promedio_compound).toFixed(3)}`,
+											`Positive: ${posPct}% (${info.positive})`,
+											`Neutral: ${neuPct}% (${info.neutral})`,
+											`Negative: ${negPct}% (${info.negative})`,
+										];
+									},
+								},
+							},
+						},
+						scales: {
+							x: {
+								beginAtZero: true,
+								min: -1,
+								max: 1,
+								ticks: { callback: (v) => Number(v).toFixed(1) },
+							},
+						},
+					},
+				})
+			);
+		} else {
+			// Render an empty chart with a title so the section doesn't look broken
+			safeRender(() =>
+				buildChart("sentimentByUserChart", {
+					type: "bar",
+					data: { labels: [], datasets: [{ data: [] }] },
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: {
+							legend: { display: false },
+							title: { display: true, text: sentimentHint, font: { size: 14 } },
+						},
+					},
+				})
+			);
+		}
+
+		const sentByDay = stats.sentimiento_por_dia || {};
+		const sentDayEntries = Object.entries(sentByDay)
+			.map(([d, v]) => ({ date: parseDate(d), label: d, value: Number(v) || 0 }))
+			.filter((x) => x.date)
+			.sort((a, b) => a.date - b.date);
+		if (sentDayEntries.length) {
+			safeRender(() =>
+				buildChart("sentimentTimelineChart", {
+					type: "line",
+					data: {
+						labels: sentDayEntries.map((e) => e.label),
+						datasets: [
+							{
+								label: t("chart.sentiment"),
+								data: sentDayEntries.map((e) => e.value),
+								borderColor: palette[0],
+								backgroundColor: "rgba(37, 211, 102, 0.15)",
+								tension: 0.25,
+								fill: true,
+								pointRadius: 0,
+							},
+						],
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: { legend: { display: false } },
+						scales: {
+							y: {
+								min: -1,
+								max: 1,
+								ticks: { callback: (v) => Number(v).toFixed(1) },
+							},
+						},
+					},
+				})
+			);
+		} else {
+			safeRender(() =>
+				buildChart("sentimentTimelineChart", {
+					type: "line",
+					data: { labels: [], datasets: [{ data: [] }] },
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						plugins: {
+							legend: { display: false },
+							title: { display: true, text: sentimentHint, font: { size: 14 } },
 						},
 					},
 				})
@@ -359,6 +552,7 @@
 		const emojiUserLabels = Object.keys(emojisPorPersona);
 		const emojiUserData = emojiUserLabels.map((name) => sumTupleList(normalizeTuples(emojisPorPersona[name] || [])));
 		if (emojiUserLabels.length) {
+			setCanvasHeight("emojiUsageByUserChart", emojiUserLabels.length);
 			safeRender(() =>
 				buildChart("emojiUsageByUserChart", {
 					type: "bar",
@@ -384,6 +578,7 @@
 
 		const totalMensajes = Number(stats.total_mensajes) || 0;
 		if (participantLabels.length && totalMensajes > 0) {
+			setCanvasHeight("responseRateChart", participantLabels.length);
 			safeRender(() =>
 				buildChart("responseRateChart", {
 					type: "bar",
@@ -456,6 +651,7 @@
 				const seg = tiempoRespuesta[name]?.promedio_segundos || 0;
 				return Math.round(seg / 60); // Convert to minutes
 			});
+			setCanvasHeight("responseTimeChart", respLabels.length);
 			safeRender(() =>
 				buildChart("responseTimeChart", {
 					type: "bar",
@@ -463,7 +659,7 @@
 						labels: respLabels,
 						datasets: [
 							{
-								label: "Minutes",
+								label: t("chart.avgTime"),
 								data: respData,
 								backgroundColor: respLabels.map((_, idx) => palette[idx % palette.length]),
 								borderRadius: 4,
@@ -502,6 +698,7 @@
 		const wordsLabels = Object.keys(palabrasPorPersona);
 		if (wordsLabels.length) {
 			const wordsData = wordsLabels.map((name) => palabrasPorPersona[name] || 0);
+			setCanvasHeight("wordsPerMessageChart", wordsLabels.length);
 			safeRender(() =>
 				buildChart("wordsPerMessageChart", {
 					type: "bar",
@@ -509,7 +706,7 @@
 						labels: wordsLabels,
 						datasets: [
 							{
-								label: "Words",
+								label: t("chart.avgWords"),
 								data: wordsData,
 								backgroundColor: wordsLabels.map((_, idx) => palette[idx % palette.length]),
 								borderRadius: 4,
@@ -676,5 +873,13 @@
 		const embedded = readEmbeddedData();
 		if (isValidStats(embedded)) loadData(embedded);
 		else showEmpty();
+
+		// Re-render charts and update stats when language changes
+		window.addEventListener("languageChanged", () => {
+			if (currentStats) {
+				updateStats(currentStats);
+				renderCharts(currentStats);
+			}
+		});
 	});
 })();
