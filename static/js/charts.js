@@ -753,22 +753,120 @@ ser interpretados por el parser y unirlas en una sola entrada de mensaje.
 		const statsContent = document.getElementById("stats-content");
 		if (!statsContent || typeof html2canvas === "undefined") return;
 
+		// Show loading state on button
+		const btn = document.getElementById("download-png-btn");
+		const originalBtnHTML = btn ? btn.innerHTML : "";
+		if (btn) {
+			btn.disabled = true;
+			btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i><span>Generating...</span>';
+		}
+
+		const isDark = document.documentElement.getAttribute("data-bs-theme") === "dark";
+		const bgColor = isDark ? "#0d1117" : "#ffffff";
+		const cardBg = isDark ? "#1c2128" : "#ffffff";
+
+		// Store original scroll position
+		const originalScrollTop = window.scrollY;
+
+		// Collect elements to modify
+		const animatedElements = statsContent.querySelectorAll(".animate-in");
+		const allCards = statsContent.querySelectorAll(".stat-card, .card");
+		const downloadSection = statsContent.querySelector(".download-section");
+
 		try {
+			// Hide download section from capture
+			if (downloadSection) downloadSection.style.display = "none";
+
+			// Force all animations to complete
+			animatedElements.forEach((el) => {
+				el.classList.add("animate-in-active");
+				el.style.cssText += "opacity: 1 !important; transform: none !important;";
+			});
+
+			// Force solid backgrounds on all cards
+			allCards.forEach((card) => {
+				card.style.cssText += `background: ${cardBg} !important; background-image: none !important; opacity: 1 !important;`;
+			});
+
+			// Scroll to ensure all content is rendered
+			window.scrollTo(0, 0);
+			await new Promise((r) => setTimeout(r, 50));
+			window.scrollTo(0, document.body.scrollHeight);
+			await new Promise((r) => setTimeout(r, 100));
+			window.scrollTo(0, 0);
+			await new Promise((r) => setTimeout(r, 150));
+
+			// Update all charts
+			if (window.Chart) {
+				Object.values(Chart.instances).forEach((chart) => {
+					chart?.resize?.();
+					chart?.update?.("none");
+				});
+				await new Promise((r) => setTimeout(r, 200));
+			}
+
+			// Capture with html2canvas
 			const canvas = await html2canvas(statsContent, {
-				backgroundColor: document.documentElement.getAttribute("data-bs-theme") === "dark" ? "#212529" : "#ffffff",
+				backgroundColor: bgColor,
 				scale: 2,
 				useCORS: true,
+				allowTaint: true,
 				logging: false,
+				imageTimeout: 0,
+				onclone: (clonedDoc) => {
+					// Apply styles in cloned document for consistent capture
+					const clonedContent = clonedDoc.getElementById("stats-content");
+					if (clonedContent) {
+						// Hide download section in clone
+						const clonedDownload = clonedContent.querySelector(".download-section");
+						if (clonedDownload) clonedDownload.style.display = "none";
+
+						// Force all elements visible in clone
+						clonedContent.querySelectorAll(".animate-in").forEach((el) => {
+							el.style.cssText += "opacity: 1 !important; transform: none !important;";
+						});
+
+						// Force card backgrounds in clone
+						clonedContent.querySelectorAll(".stat-card, .card").forEach((card) => {
+							card.style.cssText += `background: ${cardBg} !important; background-image: none !important; opacity: 1 !important;`;
+						});
+					}
+				},
 			});
-			const url = canvas.toDataURL("image/png");
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = `whatsapp-stats-${new Date().toISOString().slice(0, 10)}.png`;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
+
+			// Download the image
+			const link = document.createElement("a");
+			link.download = `whatsapp-stats-${new Date().toISOString().slice(0, 10)}.png`;
+			link.href = canvas.toDataURL("image/png", 1.0);
+			link.click();
 		} catch (err) {
-			console.warn("Failed to capture screenshot", err);
+			console.error("Screenshot error:", err);
+			alert("Error generating image. Please try again.");
+		} finally {
+			// Restore download section
+			if (downloadSection) downloadSection.style.display = "";
+
+			// Restore animated elements
+			animatedElements.forEach((el) => {
+				el.style.opacity = "";
+				el.style.transform = "";
+			});
+
+			// Restore card styles
+			allCards.forEach((card) => {
+				card.style.background = "";
+				card.style.backgroundImage = "";
+				card.style.opacity = "";
+			});
+
+			// Restore scroll position
+			window.scrollTo(0, originalScrollTop);
+
+			// Restore button
+			if (btn) {
+				btn.disabled = false;
+				btn.innerHTML = originalBtnHTML;
+			}
 		}
 	};
 
