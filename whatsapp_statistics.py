@@ -1402,11 +1402,3 @@ def process_chat(input_file, output_file):
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(stats, f, ensure_ascii=False, indent=4)
     print(f"Estadísticas exportadas a {output_file}")
-
-
-# --- Ejemplo de uso ---
-""" if __name__ == "__main__":
-    chat_file = "prueba.txt"  # Modificá la ruta según corresponda
-    salida_file = "salida.json"  # Ruta para el JSON resultante
-    process_chat(chat_file, salida_file)
- """

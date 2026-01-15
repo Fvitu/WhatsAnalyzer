@@ -5,127 +5,64 @@
 	// i18n helper - returns translation or key if not found
 	const t = (key) => window.i18n?.t(key) || key;
 
-	const demoData = {
-		total_mensajes: 420,
-		participantes: ["Alex", "Sam", "Taylor"],
-		mensajes_por_persona: { Alex: 180, Sam: 150, Taylor: 90 },
-		total_multimedia: 32,
-		lapso_tiempo: { inicio: "01-01-2024", fin: "28-02-2024", duracion: "58 days, 0:00:00" },
-		mensajes_promedio_por_dia: 7.2,
-		tiempo_promedio_conversacion: "24 min",
-		total_emojis: 210,
-		total_links: 12,
-		mensajes_por_dia: {
-			"2024-01-01": 12,
-			"2024-01-02": 8,
-			"2024-01-03": 14,
-			"2024-01-04": 6,
-			"2024-01-05": 9,
-			"2024-02-01": 11,
-			"2024-02-10": 7,
-			"2024-02-15": 13,
-			"2024-02-20": 10,
-			"2024-02-28": 16,
-		},
-		mensajes_por_hora: {
-			"00": 3,
-			"01": 1,
-			"02": 0,
-			"03": 0,
-			"04": 0,
-			"05": 0,
-			"06": 1,
-			"07": 2,
-			"08": 8,
-			"09": 10,
-			10: 14,
-			11: 12,
-			12: 18,
-			13: 20,
-			14: 22,
-			15: 24,
-			16: 28,
-			17: 32,
-			18: 36,
-			19: 30,
-			20: 24,
-			21: 18,
-			22: 12,
-			23: 8,
-		},
-		palabras_mas_utilizadas_nlp: [
-			["meet", 22],
-			["thank", 16],
-			["great", 14],
-			["call", 13],
-			["tomorrow", 12],
-			["sure", 10],
-			["today", 9],
-			["share", 8],
-			["plan", 7],
-			["time", 6],
-		],
-		palabras_mas_utilizadas: [
-			["meet", 22],
-			["thank", 16],
-			["great", 14],
-			["call", 13],
-			["tomorrow", 12],
-			["sure", 10],
-			["today", 9],
-			["share", 8],
-			["plan", 7],
-			["time", 6],
-		],
-		sentimiento_por_persona: {
-			Alex: { promedio_compound: 0.21, positive: 80, neutral: 70, negative: 30, total: 180 },
-			Sam: { promedio_compound: 0.05, positive: 55, neutral: 70, negative: 25, total: 150 },
-			Taylor: { promedio_compound: -0.08, positive: 25, neutral: 45, negative: 20, total: 90 },
-		},
-		sentimiento_por_dia: {
-			"2024-01-01": 0.02,
-			"2024-01-02": 0.05,
-			"2024-01-03": -0.01,
-			"2024-01-04": 0.12,
-			"2024-01-05": 0.08,
-			"2024-02-01": 0.04,
-			"2024-02-10": -0.06,
-			"2024-02-15": 0.1,
-			"2024-02-20": 0.0,
-			"2024-02-28": 0.14,
-		},
-		sentimiento_global: { promedio_compound: 0.07, positive: 160, neutral: 185, negative: 75, total: 420, engine: "vader" },
-		emojis_mas_utilizados: [
-			["😂", 30],
-			["👍", 22],
-			["❤️", 18],
-			["😊", 15],
-			["🔥", 14],
-			["🎉", 12],
-			["🙏", 11],
-			["🥳", 9],
-			["😉", 8],
-			["😅", 7],
-		],
-		emojis_por_persona: {
-			Alex: [
-				["😂", 12],
-				["👍", 8],
-				["❤️", 6],
-			],
-			Sam: [
-				["😂", 9],
-				["🔥", 7],
-				["🎉", 5],
-			],
-			Taylor: [
-				["😊", 6],
-				["🙏", 4],
-				["😉", 3],
-			],
-		},
-		iniciadores_de_conversacion: { iniciadores: {}, porcentajes: {}, total_conversaciones: 0 },
-	};
+	// Demo chat sample (WhatsApp export format).
+	// This is a real-style chat sample (no precomputed statistics). Use it to
+	// download and upload to the backend for analysis.
+	const demoChat = `7/01/22, 21:05 - Grupo: Ana creó el grupo "Plan Evento"
+7/01/22, 21:06 - Ana: Bienvenidos al grupo! Aquí iremos dejando avisos y material.
+7/01/22, 21:07 - Carlos: Gracias! 👋
+7/02/22, 08:00 - Marta: Buen día a todos ☀️
+7/02/22, 08:05 - Luis: <Media omitted>
+7/02/22, 08:06 - Elena: Wow, buena foto 🙌
+7/03/22, 12:10 - Carlos: ¿Alguien trajo la lista de tareas?
+7/03/22, 12:11 - Ana: Sí, la subí al drive: https://example.com/plan-evento (revisen permisos)
+7/03/22, 12:12 - Marta: Perfecto, lo veo ahora
+7/04/22, 18:20 - Luis: Atención: cambio de horario a las 20:00
+7/04/22, 18:21 - Carlos: Ok, lo tengo anotado
+7/05/22, 22:04 - Ana: <Media omitted>
+7/05/22, 22:14 - Carlos: Oaaa
+7/05/22, 22:14 - Carlos: Dale
+7/05/22, 22:14 - Carlos: 👍👍
+7/06/22, 09:30 - Marta: Enlace útil sobre logística: https://logistica.example.org/info
+7/06/22, 09:31 - Ana: Gracias! lo reviso
+7/07/22, 14:00 - Elena: ¿Quién puede traer el equipo de sonido?
+7/07/22, 14:02 - Luis: Yo puedo, lo llevo yo
+7/08/22, 11:15 - Ana: Eu porque no salen?
+7/08/22, 11:17 - Carlos: Estamos haciendo algo de catequesis
+7/08/22, 11:18 - Ana: Ah, entendido. Gracias!
+7/08/22, 11:20 - Marta: Hola a todos, llego un poco tarde
+7/08/22, 11:21 - Carlos: Bienvenido!
+7/08/22, 11:22 - Marta: Gracias, subo las fotos luego
+7/08/22, 11:23 - Ana: Perfecto, esperamos
+7/09/22, 16:45 - Carlos: Atención: se eliminó un mensaje
+7/09/22, 16:46 - Carlos: This message was deleted
+7/10/22, 09:05 - Carlos: Recuerden la reunión a las 19:00
+7/10/22, 09:06 - Marta: Listo, me anoto
+7/10/22, 19:01 - Luis: Estoy muy molesto con cómo se organizó todo; fue un desastre y no pienso volver a ayudar si sigue así 😡😤
+7/11/22, 18:20 - Carlos: Aquí va un mensaje largo que ocupa varias líneas:
+La segunda línea del mismo mensaje con más contexto y detalles técnicos que deberían
+ser interpretados por el parser y unirlas en una sola entrada de mensaje.
+7/11/22, 18:25 - Elena: Excelente explicación, gracias por el detalle.
+7/12/22, 20:30 - Ana: Qué tal estuvo hoy?
+7/12/22, 20:31 - Carlos: Muy bien, hubo mucha participación
+7/12/22, 20:33 - Marta: Me gustó la dinámica
+7/13/22, 08:45 - Ana: Gracias a todos, buen día
+7/13/22, 08:46 - Carlos: Buen día ☀️
+7/13/22, 08:47 - Marta: Buen día! 😊
+7/14/22, 10:00 - Luis: Compartí ubicación: https://www.google.com/maps/place/Some+Place
+7/14/22, 10:01 - Ana: Contact card omitted
+7/15/22, 12:00 - Carlos: @Elena puedes confirmar la lista de invitados?
+7/15/22, 12:05 - Elena: Confirmado. Lista actualizada.
+7/16/22, 21:30 - Marta: Estoy muy contento con cómo salió todo 🎉🎉
+7/16/22, 21:31 - Ana: Estoy muy decepcionado con cómo salió todo. Fue un desastre y no siento que se haya coordinado nada. No volveré a participar si esto sigue así.
+7/17/22, 07:00 - Carlos: Hola, recordatorio: encuesta pendiente (llenar en https://survey.example)
+7/17/22, 07:05 - Elena: Ya la completé
+7/18/22, 22:10 - Luis: Cambio de número: Luis cambió su número de teléfono
+7/19/22, 09:00 - Ana: ¿Alguien tiene backup de las fotos? Las necesito para la próxima publicación
+7/19/22, 09:02 - Ana: Además, honestamente estoy muy molesto por la organización, muchas cosas fallaron y eso me frustró.
+7/19/22, 09:10 - Marta: Yo las subo en un rato
+7/20/22, 11:45 - Carlos: Último mensaje de prueba: emojis 👍😂😅❤️🔥🙏🥳😉
+7/20/22, 11:46 - Ana: Fin del chat de prueba.`;
 
 	const charts = {};
 
@@ -862,7 +799,43 @@
 		setupScrollAnimations();
 
 		const demoBtn = document.getElementById("use-demo-btn");
-		if (demoBtn) demoBtn.addEventListener("click", () => loadData(demoData));
+		if (demoBtn)
+			demoBtn.addEventListener("click", async () => {
+				// Send the demo chat directly to the backend for analysis (user never sees raw chat)
+				try {
+					const form = new FormData();
+					const blob = new Blob([demoChat], { type: "text/plain;charset=utf-8" });
+					// Append as a file input named 'chatFile' (matches backend expectation)
+					form.append("chatFile", blob, `demo-whatsapp-chat-${new Date().toISOString().slice(0, 10)}.txt`);
+
+					// Try to include CSRF token if present in page (upload modal form)
+					const csrfInput = document.querySelector('input[name="csrf_token"]');
+					if (csrfInput && csrfInput.value) {
+						form.append("csrf_token", csrfInput.value);
+					}
+
+					const resp = await fetch(window.location.pathname, {
+						method: "POST",
+						body: form,
+						credentials: "same-origin",
+					});
+
+					if (resp.ok) {
+						const html = await resp.text();
+						// Replace the current document with server's response so charts update
+						document.open();
+						document.write(html);
+						document.close();
+					} else {
+						// On failure, open upload modal as fallback
+						const uploadModal = new bootstrap.Modal(document.getElementById("uploadModal"));
+						uploadModal.show();
+					}
+				} catch (err) {
+					const uploadModal = new bootstrap.Modal(document.getElementById("uploadModal"));
+					uploadModal.show();
+				}
+			});
 
 		const downloadJsonBtn = document.getElementById("download-json-btn");
 		if (downloadJsonBtn) downloadJsonBtn.addEventListener("click", downloadJSON);
